@@ -1,0 +1,32 @@
+name: 'build-test'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - 'releases/*'
+env:
+  duplo_host: ${{ secrets.DUPLO_HOST }}
+  duplo_token: ${{ secrets.DUPLO_TOKEN }}
+  duplo_tenant_id: ${{ secrets.DUPLO_TENANT_ID }}
+
+jobs:
+  build: # make sure build/ci work properly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          npm install
+      - run: |
+          npm run all
+  test: # make sure the action works on a clean machine without building
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./
+        with:
+          tenant: ${{ env.duplo_tenant_id }}
+          services: |-
+            [
+              { "Name": "website", "Image": "nginx:latest" }
+            ]

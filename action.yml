@@ -1,0 +1,23 @@
+name: 'DuploCloud Service Update'
+description: 'Updates one or more services running in the DuploCloud platform'
+author: 'DuploCloud, Inc.'
+inputs:
+  tenant:
+    required: true
+    description: 'Tenant name or ID'
+  services:
+    required: true
+    description: 'JSON for the services to be updated'
+  duplo_host:
+    required: false
+    description: 'Base URL of the Duplo installation (no trailing slash) - defaults to duplo_host env var'
+  duplo_token:
+    required: false
+    description: 'API token - defaults to duplo_token env var'
+  wait:
+    required: false
+    description: 'Whether or not to wait until the services have been succesfully updated'
+    default: 'false'
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
