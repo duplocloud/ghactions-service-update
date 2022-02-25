@@ -43,6 +43,14 @@ class DataSource {
     patchService(tenantId, request) {
         return this.api.post(`/subscriptions/${tenantId}/ReplicationControllerChange`, request);
     }
+    getPods(tenantId) {
+        return this.api.get(`/subscriptions/${tenantId}/GetPods`).pipe((0, operators_1.map)(list => {
+            return list.map(item => new model_1.Pod(item));
+        }));
+    }
+    getPodsByService(tenantId, name) {
+        return this.getPods(tenantId).pipe((0, operators_1.map)(pods => pods.filter(p => p.Name === name)));
+    }
 }
 exports.DataSource = DataSource;
 
@@ -115,7 +123,7 @@ exports.DuploHttpClient = DuploHttpClient;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
+exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
 // API object:  custom data
 class CustomData {
     constructor(properties) {
@@ -212,6 +220,7 @@ class PodTemplate {
 exports.PodTemplate = PodTemplate;
 class PodContainer {
     constructor(properties) {
+        this.DockerId = '';
         Object.assign(this, properties || {});
     }
 }
@@ -222,6 +231,32 @@ class PodInterface {
     }
 }
 exports.PodInterface = PodInterface;
+class Pod {
+    /** Convenience constructor for deserialization or cloning.  */
+    constructor(properties) {
+        this.IsAwaitingLBDeregistration = false;
+        this.Containers = [];
+        this.Interfaces = [];
+        this.AgentPlatform = AgentPlatform.DOCKER_LINUX;
+        this.Commands = [];
+        this.DeviceIds = [];
+        this.Cloud = CloudPlatform.AWS;
+        this.IsReadOnly = false;
+        Object.assign(this, properties || {});
+    }
+    get IsHealthy() {
+        return this.CurrentStatus === this.DesiredStatus;
+    }
+    get Image() {
+        var _a;
+        return (_a = this.Containers[0]) === null || _a === void 0 ? void 0 : _a.Image;
+    }
+    get DockerId() {
+        var _a;
+        return (_a = this.Containers[0]) === null || _a === void 0 ? void 0 : _a.DockerId;
+    }
+}
+exports.Pod = Pod;
 
 
 /***/ }),

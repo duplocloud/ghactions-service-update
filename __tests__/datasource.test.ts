@@ -57,4 +57,19 @@ if (!tenantId) {
     const result = await ds.getReplicationController(tenantId, 'website').toPromise()
     expect(result?.Image).toEqual(request.Image)
   })
+
+  test('DataSource: can list pods', async () => {
+    const ds = new DataSource(new DuploHttpClient())
+    const result = await ds.getPods(tenantId).toPromise()
+    expect(result).not.toBeNull()
+    expect(result.length).toBeGreaterThan(0)
+  })
+
+  test('DataSource: can list pods for a service', async () => {
+    const ds = new DataSource(new DuploHttpClient())
+    const result = await ds.getPodsByService(tenantId, 'website').toPromise()
+    expect(result).not.toBeNull()
+    expect(result.length).toBeGreaterThan(0)
+    expect(result[0].Name).toBe('website')
+  })
 }

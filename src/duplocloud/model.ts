@@ -156,7 +156,7 @@ export class PodContainer {
   Image!: string
   TenantId?: string
   InstanceId?: string
-  DockerId?: string
+  DockerId: string = ''
 }
 
 export class PodInterface {
@@ -167,4 +167,53 @@ export class PodInterface {
   IpAddress?: string
   ExternalAddress?: string
   TenantId?: string
+}
+
+export class Pod {
+  /** Convenience constructor for deserialization or cloning.  */
+  constructor(properties?: Partial<Pod>) {
+    Object.assign(this, properties || {})
+  }
+
+  CurrentStatus!: number
+  CurrentNetworkStatus!: number
+  DesiredStatus!: number
+  Version?: string
+  ReplicaId?: number
+  InstanceId?: string
+  Host?: string
+  IsAwaitingLBDeregistration: boolean = false
+  Name!: string
+  Containers: PodContainer[] = []
+  Interfaces: PodInterface[] = []
+  UserAccount?: string
+  AgentPlatform: AgentPlatform = AgentPlatform.DOCKER_LINUX
+  Volumes?: string
+  Commands: string[] = []
+
+  ApplicationUrl?: string
+  SecondaryTenant?: string
+  ExtraConfig?: string
+  OtherDockerConfig?: string
+  OtherDockerHostConfig?: string
+  DeviceIds: string[] = []
+  BaseVersion?: string
+  Cloud: CloudPlatform = CloudPlatform.AWS
+  ImageUpdateTime?: Date
+  IsReadOnly: boolean = false
+  // LBConfigurations: {[key: string]: LBConfiguration}
+  // LBCCount: number
+  AllocationTags?: string
+
+  get IsHealthy(): boolean {
+    return this.CurrentStatus === this.DesiredStatus
+  }
+
+  get Image(): string {
+    return this.Containers[0]?.Image
+  }
+
+  get DockerId(): string {
+    return this.Containers[0]?.DockerId
+  }
 }
