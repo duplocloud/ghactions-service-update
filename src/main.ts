@@ -44,22 +44,41 @@ async function updateServices(ds: DataSource, tenant: UserTenant): Promise<Servi
 }
 
 async function run(): Promise<void> {
-  try {
-    // Connect to Duplo.
-    const duploHost = core.getInput('duplo_host')
-    const duploToken = core.getInput('duplo_token')
-    const ds = new DataSource(new DuploHttpClient(duploHost, duploToken))
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Connect to Duplo.
+      const duploHost = core.getInput('duplo_host')
+      const duploToken = core.getInput('duplo_token')
+      const ds = new DataSource(new DuploHttpClient(duploHost, duploToken))
 
-    // Collect tenant information.
-    const tenantInput = core.getInput('tenant')
-    const tenant = await ds.getTenant(tenantInput).toPromise()
-    if (!tenant) throw new Error(`No such tenant: ${tenantInput}`)
+      // Collect tenant information.
+      const tenantInput = core.getInput('tenant')
+      const tenant = await ds.getTenant(tenantInput).toPromise()
+      if (!tenant) throw new Error(`No such tenant: ${tenantInput}`)
 
-    // Update all services.
-    /* const updateResults = */ await updateServices(ds, tenant)
-  } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message)
-  }
+      // Update all services.
+      const updateResults = await updateServices(ds, tenant)
+
+      // Check for failures.
+      const failures: string[] = []
+      for (const key of Object.keys(updateResults)) {
+        if (!updateResults[key].UpdateSucceeded) {
+          failures.push(key)
+        }
+      }
+      if (failures.length) throw new Error(`Failed to update services: ${failures.join(', ')}`)
+
+      resolve()
+    } catch (error) {
+      if (error instanceof Error) {
+        core.setFailed(error.message)
+        reject(error)
+      } else {
+        core.setFailed(`${error}`)
+        reject(new Error(`${error}`))
+      }
+    }
+  })
 }
 
 run()
