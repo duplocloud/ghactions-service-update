@@ -28,6 +28,9 @@ export class ServiceUpdater {
     readonly pods: Pod[],
     readonly ds: DataSource
   ) {
+    if (!desired?.Name?.length) throw new Error('service.Name: missing or empty')
+    if (!desired?.Image?.length) throw new Error('service.Image: missing or empty')
+
     this.name = desired.Name
   }
 
