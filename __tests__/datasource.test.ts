@@ -19,6 +19,17 @@ if (!tenantId) {
     expect(result).not.toBeNull()
   })
 
+  test('DataSource: can get tenant with uppercase', async () => {
+    const ds = new DataSource(new DuploHttpClient())
+    const result = await ds.getTenantByName('DEFAULT').toPromise()
+    expect(result).not.toBeNull()
+    expect(result?.AccountName).toBe('default')
+
+    const result2 = await ds.getTenant('DEFAULT').toPromise()
+    expect(result2).not.toBeNull()
+    expect(result2?.AccountName).toBe('default')
+  })
+
   test('DataSource: can get tenant by name or ID', async () => {
     const ds = new DataSource(new DuploHttpClient())
     const result = await ds.getTenantByName('default').toPromise()

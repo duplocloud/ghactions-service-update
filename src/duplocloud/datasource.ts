@@ -18,11 +18,13 @@ export class DataSource {
   }
 
   getTenantById(id: string): Observable<UserTenant | undefined> {
-    return this.getTenantsForUser().pipe(map(list => list.find(tenant => tenant.TenantId === id)))
+    id = id.toLowerCase()
+    return this.getTenantsForUser().pipe(map(list => list.find(tenant => tenant.TenantId.toLowerCase() === id)))
   }
 
   getTenantByName(name: string): Observable<UserTenant | undefined> {
-    return this.getTenantsForUser().pipe(map(list => list.find(tenant => tenant.AccountName === name)))
+    name = name.toLowerCase()
+    return this.getTenantsForUser().pipe(map(list => list.find(tenant => tenant.AccountName.toLowerCase() === name)))
   }
 
   getReplicationControllers(tenantId: string): Observable<ReplicationController[]> {

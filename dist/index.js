@@ -25,10 +25,12 @@ class DataSource {
         return this.getTenantByName(idOrName);
     }
     getTenantById(id) {
-        return this.getTenantsForUser().pipe((0, operators_1.map)(list => list.find(tenant => tenant.TenantId === id)));
+        id = id.toLowerCase();
+        return this.getTenantsForUser().pipe((0, operators_1.map)(list => list.find(tenant => tenant.TenantId.toLowerCase() === id)));
     }
     getTenantByName(name) {
-        return this.getTenantsForUser().pipe((0, operators_1.map)(list => list.find(tenant => tenant.AccountName === name)));
+        name = name.toLowerCase();
+        return this.getTenantsForUser().pipe((0, operators_1.map)(list => list.find(tenant => tenant.AccountName.toLowerCase() === name)));
     }
     getReplicationControllers(tenantId) {
         return this.api.get(`/subscriptions/${tenantId}/GetReplicationControllers`).pipe((0, operators_1.map)(list => {
@@ -334,23 +336,41 @@ function updateServices(ds, tenant) {
 }
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            // Connect to Duplo.
-            const duploHost = core.getInput('duplo_host');
-            const duploToken = core.getInput('duplo_token');
-            const ds = new datasource_1.DataSource(new httpclient_1.DuploHttpClient(duploHost, duploToken));
-            // Collect tenant information.
-            const tenantInput = core.getInput('tenant');
-            const tenant = yield ds.getTenant(tenantInput).toPromise();
-            if (!tenant)
-                throw new Error(`No such tenant: ${tenantInput}`);
-            // Update all services.
-            /* const updateResults = */ yield updateServices(ds, tenant);
-        }
-        catch (error) {
-            if (error instanceof Error)
-                core.setFailed(error.message);
-        }
+        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Connect to Duplo.
+                const duploHost = core.getInput('duplo_host');
+                const duploToken = core.getInput('duplo_token');
+                const ds = new datasource_1.DataSource(new httpclient_1.DuploHttpClient(duploHost, duploToken));
+                // Collect tenant information.
+                const tenantInput = core.getInput('tenant');
+                const tenant = yield ds.getTenant(tenantInput).toPromise();
+                if (!tenant)
+                    throw new Error(`No such tenant: ${tenantInput}`);
+                // Update all services.
+                const updateResults = yield updateServices(ds, tenant);
+                // Check for failures.
+                const failures = [];
+                for (const key of Object.keys(updateResults)) {
+                    if (!updateResults[key].UpdateSucceeded) {
+                        failures.push(key);
+                    }
+                }
+                if (failures.length)
+                    throw new Error(`Failed to update service${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
+                resolve();
+            }
+            catch (error) {
+                if (error instanceof Error) {
+                    core.setFailed(error.message);
+                    reject(error);
+                }
+                else {
+                    core.setFailed(`${error}`);
+                    reject(new Error(`${error}`));
+                }
+            }
+        }));
     });
 }
 run();
@@ -406,11 +426,16 @@ const rxjs_1 = __nccwpck_require__(5805);
 const operators_1 = __nccwpck_require__(7801);
 class ServiceUpdater {
     constructor(tenant, desired, existing, pods, ds) {
+        var _a, _b;
         this.tenant = tenant;
         this.desired = desired;
         this.existing = existing;
         this.pods = pods;
         this.ds = ds;
+        if (!((_a = desired === null || desired === void 0 ? void 0 : desired.Name) === null || _a === void 0 ? void 0 : _a.length))
+            throw new Error('service.Name: missing or empty');
+        if (!((_b = desired === null || desired === void 0 ? void 0 : desired.Image) === null || _b === void 0 ? void 0 : _b.length))
+            throw new Error('service.Image: missing or empty');
         this.name = desired.Name;
     }
     buildServiceUpdate() {
