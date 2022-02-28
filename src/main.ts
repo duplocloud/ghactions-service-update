@@ -66,7 +66,8 @@ async function run(): Promise<void> {
           failures.push(key)
         }
       }
-      if (failures.length) throw new Error(`Failed to update services: ${failures.join(', ')}`)
+      if (failures.length)
+        throw new Error(`Failed to update service${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`)
 
       resolve()
     } catch (error) {
