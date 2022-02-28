@@ -1,6 +1,6 @@
 {
   "name": "ghactions-service-update",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Update one or more Services running in Duplo",
   "main": "lib/main.js",
