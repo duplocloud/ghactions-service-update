@@ -43,6 +43,14 @@ class DataSource {
     patchService(tenantId, request) {
         return this.api.post(`/subscriptions/${tenantId}/ReplicationControllerChange`, request);
     }
+    getPods(tenantId) {
+        return this.api.get(`/subscriptions/${tenantId}/GetPods`).pipe((0, operators_1.map)(list => {
+            return list.map(item => new model_1.Pod(item));
+        }));
+    }
+    getPodsByService(tenantId, name) {
+        return this.getPods(tenantId).pipe((0, operators_1.map)(pods => pods.filter(p => p.Name === name)));
+    }
 }
 exports.DataSource = DataSource;
 
@@ -115,7 +123,7 @@ exports.DuploHttpClient = DuploHttpClient;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
+exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
 // API object:  custom data
 class CustomData {
     constructor(properties) {
@@ -212,6 +220,7 @@ class PodTemplate {
 exports.PodTemplate = PodTemplate;
 class PodContainer {
     constructor(properties) {
+        this.DockerId = '';
         Object.assign(this, properties || {});
     }
 }
@@ -222,6 +231,32 @@ class PodInterface {
     }
 }
 exports.PodInterface = PodInterface;
+class Pod {
+    /** Convenience constructor for deserialization or cloning.  */
+    constructor(properties) {
+        this.IsAwaitingLBDeregistration = false;
+        this.Containers = [];
+        this.Interfaces = [];
+        this.AgentPlatform = AgentPlatform.DOCKER_LINUX;
+        this.Commands = [];
+        this.DeviceIds = [];
+        this.Cloud = CloudPlatform.AWS;
+        this.IsReadOnly = false;
+        Object.assign(this, properties || {});
+    }
+    get IsHealthy() {
+        return this.CurrentStatus === this.DesiredStatus;
+    }
+    get Image() {
+        var _a;
+        return (_a = this.Containers[0]) === null || _a === void 0 ? void 0 : _a.Image;
+    }
+    get DockerId() {
+        var _a;
+        return (_a = this.Containers[0]) === null || _a === void 0 ? void 0 : _a.DockerId;
+    }
+}
+exports.Pod = Pod;
 
 
 /***/ }),
@@ -262,25 +297,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const rxjs_1 = __nccwpck_require__(5805);
-const operators_1 = __nccwpck_require__(7801);
+const service_updater_1 = __nccwpck_require__(7653);
 const datasource_1 = __nccwpck_require__(8835);
 const httpclient_1 = __nccwpck_require__(6840);
-function buildServiceUpdate(ds, tenant, desired, existing) {
-    var _a, _b;
-    const ImagePrev = (_a = existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
-    // Pull in the agent platform, if it is missing.
-    if (!desired.AgentPlatform && desired.AgentPlatform !== 0) {
-        desired.AgentPlatform = (_b = existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
-    }
-    // Build the API call and prepare to output status about the API call
-    return ds.patchService(tenant.TenantId, desired).pipe((0, operators_1.map)(rp => {
-        core.info(`Updated duplo service: ${desired.Name}`);
-        return { ImagePrev, UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
-    }), (0, operators_1.catchError)(err => {
-        core.error(`Failed to update Duplo service(s): ${JSON.stringify(err)}`);
-        return (0, rxjs_1.of)({ ImagePrev, UpdateSucceeded: false });
-    }));
-}
 /**
  * Updates one or more duplo services in parallel
  * @param ds      duplo API data source
@@ -289,16 +308,25 @@ function buildServiceUpdate(ds, tenant, desired, existing) {
  */
 function updateServices(ds, tenant) {
     return __awaiter(this, void 0, void 0, function* () {
-        // Collect service information.
+        // Collect information about the services to update
         const serviceUpdates = JSON.parse(core.getInput('services'));
-        const services = yield ds.getReplicationControllers(tenant.TenantId).toPromise();
+        const lookups = yield (0, rxjs_1.forkJoin)({
+            services: ds.getReplicationControllers(tenant.TenantId),
+            pods: ds.getPods(tenant.TenantId)
+        }).toPromise();
+        // Create the service updater instances.
+        const updaters = {};
+        for (const desired of serviceUpdates) {
+            const existing = lookups.services.find(svc => svc.Name === desired.Name);
+            if (!existing)
+                throw new Error(`No such service: ${desired.Name}`);
+            const pods = lookups.pods.filter(pod => pod.Name === desired.Name);
+            updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
+        }
         // Build the updates to execute in parallel.
         const apiCalls = {};
         for (const desired of serviceUpdates) {
-            const existing = services.find(svc => svc.Name === desired.Name);
-            if (!existing)
-                throw new Error(`No such service: ${desired.Name}`);
-            apiCalls[desired.Name] = buildServiceUpdate(ds, tenant, desired, existing);
+            apiCalls[desired.Name] = updaters[desired.Name].buildServiceUpdate();
         }
         // Perform the updates in parallel, failing on error.
         return (0, rxjs_1.forkJoin)(apiCalls).toPromise();
@@ -343,6 +371,81 @@ if (!globalThis.fetch) {
     globalThis.Request = fetch.Request;
     globalThis.Response = fetch.Response;
 }
+
+
+/***/ }),
+
+/***/ 7653:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.ServiceUpdater = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+const rxjs_1 = __nccwpck_require__(5805);
+const operators_1 = __nccwpck_require__(7801);
+class ServiceUpdater {
+    constructor(tenant, desired, existing, pods, ds) {
+        this.tenant = tenant;
+        this.desired = desired;
+        this.existing = existing;
+        this.pods = pods;
+        this.ds = ds;
+        this.name = desired.Name;
+    }
+    buildServiceUpdate() {
+        var _a, _b;
+        const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
+        const Replicas = this.existing.Replicas;
+        // Find all existing pods, and remember when we first saw them.
+        const Containers = this.pods
+            .map(pod => {
+            var _a, _b;
+            return (_b = (_a = pod.Containers) === null || _a === void 0 ? void 0 : _a.map(ctr => {
+                return {
+                    DesiredStatus: pod.DesiredStatus,
+                    CurrentStatus: pod.CurrentStatus,
+                    DockerId: ctr.DockerId,
+                    FirstSeen: new Date().getTime()
+                };
+            })) !== null && _b !== void 0 ? _b : [];
+        })
+            .flat();
+        // Pull in the agent platform, if it is missing.
+        if (!this.desired.AgentPlatform && this.desired.AgentPlatform !== 0) {
+            this.desired.AgentPlatform = (_b = this.existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
+        }
+        // Build the API call and prepare to output status about the API call
+        return this.ds.patchService(this.tenant.TenantId, this.desired).pipe((0, operators_1.map)(rp => {
+            core.info(`Updated duplo service: ${this.desired.Name}`);
+            return { ImagePrev, Replicas, Containers, UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
+        }), (0, operators_1.catchError)(err => {
+            core.error(`Failed to update Duplo service(s): ${JSON.stringify(err)}`);
+            return (0, rxjs_1.of)({ ImagePrev, Replicas, Containers, UpdateSucceeded: false });
+        }));
+    }
+}
+exports.ServiceUpdater = ServiceUpdater;
 
 
 /***/ }),

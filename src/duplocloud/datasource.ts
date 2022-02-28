@@ -1,4 +1,4 @@
-import {ReplicationController, ServicePatchRequest, UserTenant} from './model'
+import {Pod, ReplicationController, ServicePatchRequest, UserTenant} from './model'
 import {DuploHttpClient} from './httpclient'
 import {Observable} from 'rxjs'
 import {map} from 'rxjs/operators'
@@ -43,5 +43,17 @@ export class DataSource {
 
   patchService(tenantId: string, request: ServicePatchRequest): Observable<null> {
     return this.api.post<null>(`/subscriptions/${tenantId}/ReplicationControllerChange`, request)
+  }
+
+  getPods(tenantId: string): Observable<Pod[]> {
+    return this.api.get<Pod[]>(`/subscriptions/${tenantId}/GetPods`).pipe(
+      map(list => {
+        return list.map(item => new Pod(item))
+      })
+    )
+  }
+
+  getPodsByService(tenantId: string, name: string): Observable<Pod[]> {
+    return this.getPods(tenantId).pipe(map(pods => pods.filter(p => p.Name === name)))
   }
 }
