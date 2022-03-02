@@ -22,6 +22,9 @@ async function updateServices(ds: DataSource, tenant: UserTenant): Promise<Servi
   const haveServiceUpdates = !!serviceUpdates.length
   const ecsUpdates: EcsServicePatchRequest[] = JSON.parse(core.getInput('ecs_services') || '[]')
   const haveEcsUpdates = !!ecsUpdates.length
+  if (!haveServiceUpdates && !haveEcsUpdates) {
+    throw new Error('services or ecs_services must be set: nothing to do')
+  }
 
   // Collect information about the services to update
   const lookups = await forkJoin({

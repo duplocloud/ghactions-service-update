@@ -573,6 +573,9 @@ function updateServices(ds, tenant) {
         const haveServiceUpdates = !!serviceUpdates.length;
         const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
         const haveEcsUpdates = !!ecsUpdates.length;
+        if (!haveServiceUpdates && !haveEcsUpdates) {
+            throw new Error('services or ecs_services must be set: nothing to do');
+        }
         // Collect information about the services to update
         const lookups = yield (0, rxjs_1.forkJoin)({
             services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : [],
