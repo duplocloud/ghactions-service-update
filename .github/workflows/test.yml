@@ -1,10 +1,11 @@
-name: 'build-test'
+name: Test
 on:
   workflow_dispatch:
   push:
     branches:
+      - develop
       - master
-      - 'releases/*'
+      - 'release/*'
 env:
   duplo_host: ${{ secrets.DUPLO_HOST }}
   duplo_token: ${{ secrets.DUPLO_TOKEN }}
@@ -14,6 +15,10 @@ jobs:
   build: # make sure build/ci work properly
     runs-on: ubuntu-latest
     steps:
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
       - uses: actions/checkout@v2
       - run: |
           npm install
