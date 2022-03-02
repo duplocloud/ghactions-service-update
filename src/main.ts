@@ -60,9 +60,6 @@ async function updateServices(ds: DataSource, tenant: UserTenant): Promise<Servi
   }
   const lookups: ServiceLookups = await forkJoin(lookupApis).toPromise()
 
-  // eslint-disable-next-line no-console
-  console.log(lookups)
-
   // Create the service updater instances.
   const updaters: {[name: string]: ServiceUpdater | EcsServiceUpdater} = {}
   for (const desired of serviceUpdates) {
