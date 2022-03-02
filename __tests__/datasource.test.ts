@@ -1,4 +1,4 @@
-import {expect, test} from '@jest/globals'
+import {expect, jest, test} from '@jest/globals'
 
 import {DataSource} from '../src/duplocloud/datasource'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
@@ -48,6 +48,8 @@ if (!tenantId) {
     const result = await ds.getReplicationControllers(tenantId).toPromise()
     expect(result).not.toBeNull()
   })
+
+  jest.setTimeout(10000)
 
   test('DataSource: can patch a replication controller', async () => {
     const ds = new DataSource(new DuploHttpClient())

@@ -555,8 +555,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
-const rxjs_1 = __nccwpck_require__(5805);
 const ecs_service_updater_1 = __nccwpck_require__(2039);
+const rxjs_1 = __nccwpck_require__(5805);
 const service_updater_1 = __nccwpck_require__(7653);
 const datasource_1 = __nccwpck_require__(8835);
 const httpclient_1 = __nccwpck_require__(6840);
@@ -567,6 +567,7 @@ const httpclient_1 = __nccwpck_require__(6840);
  * @returns a map of service name to API call status
  */
 function updateServices(ds, tenant) {
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         // Parse requested updates.
         const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
@@ -577,28 +578,32 @@ function updateServices(ds, tenant) {
             throw new Error('services or ecs_services must be set: nothing to do');
         }
         // Collect information about the services to update
-        const lookups = yield (0, rxjs_1.forkJoin)({
-            services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : rxjs_1.EMPTY,
-            pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : rxjs_1.EMPTY,
-            ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : rxjs_1.EMPTY,
-            ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : rxjs_1.EMPTY
-        }).toPromise();
+        const lookupApis = {};
+        if (haveServiceUpdates) {
+            lookupApis.services = ds.getReplicationControllers(tenant.TenantId);
+            lookupApis.pods = ds.getPods(tenant.TenantId);
+        }
+        if (haveEcsUpdates) {
+            lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId);
+            lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
+        }
+        const lookups = yield (0, rxjs_1.forkJoin)(lookupApis).toPromise();
         // eslint-disable-next-line no-console
         console.log(lookups);
         // Create the service updater instances.
         const updaters = {};
         for (const desired of serviceUpdates) {
-            const existing = lookups.services.find(svc => svc.Name === desired.Name);
+            const existing = (_a = lookups.services) === null || _a === void 0 ? void 0 : _a.find(svc => svc.Name === desired.Name);
             if (!existing)
                 throw new Error(`No such duplo service: ${desired.Name}`);
-            const pods = lookups.pods.filter(pod => pod.Name === desired.Name);
+            const pods = ((_b = lookups.pods) === null || _b === void 0 ? void 0 : _b.filter(pod => pod.Name === desired.Name)) || [];
             updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
         }
         for (const desired of ecsUpdates) {
-            const existingService = lookups.ecsServices.find(svc => svc.Name === desired.Name);
+            const existingService = (_c = lookups.ecsServices) === null || _c === void 0 ? void 0 : _c.find(svc => svc.Name === desired.Name);
             if (!existingService)
                 throw new Error(`No such ECS service: ${desired.Name}`);
-            const existingTaskDefArn = lookups.ecsTaskDefs.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
+            const existingTaskDefArn = (_d = lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
             if (!existingTaskDefArn)
                 throw new Error(`Cannot find ECS task definition ARN for: ${desired.Name}`);
             updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
@@ -6010,7 +6015,7 @@ var partition_1 = __nccwpck_require__(2707);
 exports.partition = partition_1.partition;
 var race_1 = __nccwpck_require__(1513);
 exports.race = race_1.race;
-var range_1 = __nccwpck_require__(4585);
+var range_1 = __nccwpck_require__(3577);
 exports.range = range_1.range;
 var throwError_1 = __nccwpck_require__(2833);
 exports.throwError = throwError_1.throwError;
@@ -8881,7 +8886,7 @@ exports.RaceSubscriber = RaceSubscriber;
 
 /***/ }),
 
-/***/ 4585:
+/***/ 3577:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -15836,7 +15841,7 @@ exports.zip = zip;
 
 /***/ }),
 
-/***/ 1582:
+/***/ 4585:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -17581,7 +17586,7 @@ var withLatestFrom_1 = __nccwpck_require__(8283);
 exports.withLatestFrom = withLatestFrom_1.withLatestFrom;
 var zip_1 = __nccwpck_require__(291);
 exports.zip = zip_1.zip;
-var zipAll_1 = __nccwpck_require__(1582);
+var zipAll_1 = __nccwpck_require__(4585);
 exports.zipAll = zipAll_1.zipAll;
 //# sourceMappingURL=index.js.map
 
