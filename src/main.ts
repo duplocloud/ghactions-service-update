@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
+import {EMPTY, Observable, forkJoin} from 'rxjs'
 import {EcsServicePatchRequest, ServicePatchRequest, UserTenant} from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
-import {EMPTY, Observable, forkJoin, of} from 'rxjs'
 import {ServicePatchResult, ServiceUpdater} from './service-updater'
 import {DataSource} from './duplocloud/datasource'
 import {DuploHttpClient} from './duplocloud/httpclient'

@@ -555,8 +555,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
-const ecs_service_updater_1 = __nccwpck_require__(2039);
 const rxjs_1 = __nccwpck_require__(5805);
+const ecs_service_updater_1 = __nccwpck_require__(2039);
 const service_updater_1 = __nccwpck_require__(7653);
 const datasource_1 = __nccwpck_require__(8835);
 const httpclient_1 = __nccwpck_require__(6840);
@@ -583,6 +583,8 @@ function updateServices(ds, tenant) {
             ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : rxjs_1.EMPTY,
             ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : rxjs_1.EMPTY
         }).toPromise();
+        // eslint-disable-next-line no-console
+        console.log(lookups);
         // Create the service updater instances.
         const updaters = {};
         for (const desired of serviceUpdates) {
@@ -6008,7 +6010,7 @@ var partition_1 = __nccwpck_require__(2707);
 exports.partition = partition_1.partition;
 var race_1 = __nccwpck_require__(1513);
 exports.race = race_1.race;
-var range_1 = __nccwpck_require__(3577);
+var range_1 = __nccwpck_require__(4585);
 exports.range = range_1.range;
 var throwError_1 = __nccwpck_require__(2833);
 exports.throwError = throwError_1.throwError;
@@ -8879,7 +8881,7 @@ exports.RaceSubscriber = RaceSubscriber;
 
 /***/ }),
 
-/***/ 3577:
+/***/ 4585:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -15834,7 +15836,7 @@ exports.zip = zip;
 
 /***/ }),
 
-/***/ 4585:
+/***/ 1582:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -17579,7 +17581,7 @@ var withLatestFrom_1 = __nccwpck_require__(8283);
 exports.withLatestFrom = withLatestFrom_1.withLatestFrom;
 var zip_1 = __nccwpck_require__(291);
 exports.zip = zip_1.zip;
-var zipAll_1 = __nccwpck_require__(4585);
+var zipAll_1 = __nccwpck_require__(1582);
 exports.zipAll = zipAll_1.zipAll;
 //# sourceMappingURL=index.js.map
 
