@@ -7,9 +7,22 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.DataSource = void 0;
+exports.DataSource = exports.extractErrorMessage = void 0;
 const model_1 = __nccwpck_require__(5159);
 const operators_1 = __nccwpck_require__(7801);
+function extractErrorMessage(err) {
+    // Script error.
+    if (err instanceof ErrorEvent)
+        return err.error.message;
+    // Plain text error.
+    if (typeof err == 'string')
+        return err;
+    // Error from API calls.
+    if (err === null || err === void 0 ? void 0 : err.message)
+        return err.message;
+    return 'An unexpected error occured!';
+}
+exports.extractErrorMessage = extractErrorMessage;
 class DataSource {
     constructor(api) {
         this.api = api;
@@ -411,6 +424,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EcsServiceUpdater = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const model_1 = __nccwpck_require__(5159);
+const datasource_1 = __nccwpck_require__(8835);
 const rxjs_1 = __nccwpck_require__(5805);
 const operators_1 = __nccwpck_require__(7801);
 class EcsServiceUpdater {
@@ -426,6 +440,37 @@ class EcsServiceUpdater {
         if (!((_b = desired === null || desired === void 0 ? void 0 : desired.Image) === null || _b === void 0 ? void 0 : _b.length))
             throw new Error('service.Image: missing or empty');
         this.name = desired.Name;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    removeEmptyKeys(obj) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const newObj = {};
+        for (const key of Object.keys(obj)) {
+            if (obj[key] && Array.isArray(obj[key])) {
+                if (obj[key].length) {
+                    newObj[key] = obj[key];
+                }
+            }
+            else if (obj[key] && typeof obj[key] === 'object') {
+                if (Object.keys(obj[key]).length) {
+                    newObj[key] = obj[key];
+                }
+            }
+            else if (obj[key]) {
+                newObj[key] = obj[key]; // copy value
+            }
+        }
+        return newObj;
+    }
+    sanitizeTaskDef(taskDef) {
+        this.removeEmptyKeys(taskDef);
+        taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt));
+        delete taskDef.DeregisteredAt;
+        delete taskDef.RegisteredAt;
+        delete taskDef.RegisteredBy;
+        delete taskDef.Revision;
+        delete taskDef.Status;
+        delete taskDef.TaskDefinitionArn;
     }
     buildServiceUpdate() {
         // Find the task definition.
@@ -443,28 +488,30 @@ class EcsServiceUpdater {
                     desiredContainer = new model_1.ContainerDefinition(cnt);
                     desiredContainer.Image = this.desired.Image;
                 }
-                return cnt;
+                return desiredContainer;
             });
+            this.sanitizeTaskDef(desiredTaskDef);
             // Build the API call and prepare to output status about the API call
-            return this.ds.updateEcsTaskDefinition(this.tenant.TenantId, desiredTaskDef).pipe((0, operators_1.mergeMap)(taskDefArn => {
-                core.info(`Updated ECS task definition: ${this.desired.Name}: ${taskDefArn}`);
+            return this.ds.updateEcsTaskDefinition(this.tenant.TenantId, desiredTaskDef).pipe((0, operators_1.mergeMap)(TaskDefinitionArn => {
+                core.info(`Updated ECS task definition: ${this.desired.Name}: ${TaskDefinitionArn}`);
                 // Patch the ECS service, replacing the task definition.
                 const desiredService = new model_1.EcsServiceModel(this.existingService);
-                desiredService.TaskDefinition = taskDefArn;
+                desiredService.TaskDefinition = TaskDefinitionArn;
                 return this.ds.updateEcsService(this.tenant.TenantId, desiredService).pipe((0, operators_1.map)(() => {
                     core.info(`Updated ECS service: ${this.desired.Name}`);
-                    return { ImagePrev, UpdateSucceeded: true };
+                    return { ImagePrev, TaskDefinitionArn, UpdateSucceeded: true };
                 }), (0, operators_1.catchError)(err => {
                     core.error(`Failed to update ECS service: ${JSON.stringify(err)}`);
-                    return (0, rxjs_1.of)({ ImagePrev, UpdateSucceeded: false });
+                    return (0, rxjs_1.of)({ ImagePrev, TaskDefinitionArn, UpdateSucceeded: false });
                 }));
             }), (0, operators_1.catchError)(err => {
-                core.error(`Failed to update ECS task definition: ${JSON.stringify(err)}`);
+                const msg = (0, datasource_1.extractErrorMessage)(err);
+                core.error(`Failed to update ECS task definition: ${msg}`);
                 return (0, rxjs_1.of)({ ImagePrev, UpdateSucceeded: false });
             }));
         }), (0, operators_1.catchError)(err => {
             core.error(`Failed to find ECS task definition: ${JSON.stringify(err)}`);
-            return (0, rxjs_1.of)({ ImagePrev: '', UpdateSucceeded: false });
+            return (0, rxjs_1.of)({ UpdateSucceeded: false });
         }));
     }
 }
@@ -5958,7 +6005,7 @@ var partition_1 = __nccwpck_require__(2707);
 exports.partition = partition_1.partition;
 var race_1 = __nccwpck_require__(1513);
 exports.race = race_1.race;
-var range_1 = __nccwpck_require__(4585);
+var range_1 = __nccwpck_require__(3577);
 exports.range = range_1.range;
 var throwError_1 = __nccwpck_require__(2833);
 exports.throwError = throwError_1.throwError;
@@ -8829,7 +8876,7 @@ exports.RaceSubscriber = RaceSubscriber;
 
 /***/ }),
 
-/***/ 4585:
+/***/ 3577:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -15784,7 +15831,7 @@ exports.zip = zip;
 
 /***/ }),
 
-/***/ 1582:
+/***/ 4585:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
@@ -17529,7 +17576,7 @@ var withLatestFrom_1 = __nccwpck_require__(8283);
 exports.withLatestFrom = withLatestFrom_1.withLatestFrom;
 var zip_1 = __nccwpck_require__(291);
 exports.zip = zip_1.zip;
-var zipAll_1 = __nccwpck_require__(1582);
+var zipAll_1 = __nccwpck_require__(4585);
 exports.zipAll = zipAll_1.zipAll;
 //# sourceMappingURL=index.js.map
 

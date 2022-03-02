@@ -7,13 +7,14 @@ import {
   EcsTaskDefinitionArn,
   UserTenant
 } from './duplocloud/model'
+import {DataSource, extractErrorMessage} from './duplocloud/datasource'
 import {Observable, of} from 'rxjs'
 import {catchError, map, mergeMap} from 'rxjs/operators'
-import {DataSource} from './duplocloud/datasource'
 
 export interface EcsServicePatchResult {
   UpdateSucceeded: boolean // did the update API succeed?
-  ImagePrev: string | undefined // what was the docker image prior to the API call?
+  ImagePrev?: string // what was the docker image prior to the API call?
+  TaskDefinitionArn?: string // what was the docker image prior to the API call?
 }
 
 export class EcsServiceUpdater {
@@ -32,6 +33,40 @@ export class EcsServiceUpdater {
     this.name = desired.Name
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private removeEmptyKeys(obj: any): any {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newObj: any = {}
+
+    for (const key of Object.keys(obj)) {
+      if (obj[key] && Array.isArray(obj[key])) {
+        if (obj[key].length) {
+          newObj[key] = obj[key]
+        }
+      } else if (obj[key] && typeof obj[key] === 'object') {
+        if (Object.keys(obj[key]).length) {
+          newObj[key] = obj[key]
+        }
+      } else if (obj[key]) {
+        newObj[key] = obj[key] // copy value
+      }
+    }
+
+    return newObj
+  }
+
+  private sanitizeTaskDef(taskDef: EcsTaskDefinition): void {
+    this.removeEmptyKeys(taskDef)
+    taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt))
+
+    delete taskDef.DeregisteredAt
+    delete taskDef.RegisteredAt
+    delete taskDef.RegisteredBy
+    delete taskDef.Revision
+    delete taskDef.Status
+    delete taskDef.TaskDefinitionArn
+  }
+
   buildServiceUpdate(): Observable<EcsServicePatchResult> {
     // Find the task definition.
     return this.ds.getTaskDefinitionDetails(this.tenant.TenantId, this.existingTaskDefArn.TaskDefinitionArn).pipe(
@@ -48,37 +83,39 @@ export class EcsServiceUpdater {
             desiredContainer = new ContainerDefinition(cnt)
             desiredContainer.Image = this.desired.Image
           }
-          return cnt
+          return desiredContainer
         })
+        this.sanitizeTaskDef(desiredTaskDef)
 
         // Build the API call and prepare to output status about the API call
         return this.ds.updateEcsTaskDefinition(this.tenant.TenantId, desiredTaskDef).pipe(
-          mergeMap(taskDefArn => {
-            core.info(`Updated ECS task definition: ${this.desired.Name}: ${taskDefArn}`)
+          mergeMap(TaskDefinitionArn => {
+            core.info(`Updated ECS task definition: ${this.desired.Name}: ${TaskDefinitionArn}`)
 
             // Patch the ECS service, replacing the task definition.
             const desiredService = new EcsServiceModel(this.existingService)
-            desiredService.TaskDefinition = taskDefArn
+            desiredService.TaskDefinition = TaskDefinitionArn
             return this.ds.updateEcsService(this.tenant.TenantId, desiredService).pipe(
               map(() => {
                 core.info(`Updated ECS service: ${this.desired.Name}`)
-                return {ImagePrev, UpdateSucceeded: true}
+                return {ImagePrev, TaskDefinitionArn, UpdateSucceeded: true}
               }),
               catchError(err => {
                 core.error(`Failed to update ECS service: ${JSON.stringify(err)}`)
-                return of({ImagePrev, UpdateSucceeded: false})
+                return of({ImagePrev, TaskDefinitionArn, UpdateSucceeded: false})
               })
             )
           }),
           catchError(err => {
-            core.error(`Failed to update ECS task definition: ${JSON.stringify(err)}`)
+            const msg = extractErrorMessage(err)
+            core.error(`Failed to update ECS task definition: ${msg}`)
             return of({ImagePrev, UpdateSucceeded: false})
           })
         )
       }),
       catchError(err => {
         core.error(`Failed to find ECS task definition: ${JSON.stringify(err)}`)
-        return of({ImagePrev: '', UpdateSucceeded: false})
+        return of({UpdateSucceeded: false})
       })
     )
   }

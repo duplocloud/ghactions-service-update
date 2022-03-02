@@ -11,6 +11,24 @@ import {DuploHttpClient} from './httpclient'
 import {Observable} from 'rxjs'
 import {map} from 'rxjs/operators'
 
+/**
+ * A convenience type representing all types that we know how to extract error messages from.
+ */
+export type ErrorMessage = string | ErrorEvent | {message: string}
+
+export function extractErrorMessage(err: ErrorMessage): string {
+  // Script error.
+  if (err instanceof ErrorEvent) return err.error.message
+
+  // Plain text error.
+  if (typeof err == 'string') return err
+
+  // Error from API calls.
+  if (err?.message) return err.message
+
+  return 'An unexpected error occured!'
+}
+
 export class DataSource {
   constructor(private api: DuploHttpClient) {}
 

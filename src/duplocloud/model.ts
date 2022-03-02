@@ -346,9 +346,9 @@ export class EcsTaskDefinition {
   RegisteredBy?: string
   RequiresAttributes?: Named[]
   RequiresCompatibilities?: string[]
-  Revision!: number
+  Revision?: number
   Status?: StringValue
-  TaskDefinitionArn!: string
+  TaskDefinitionArn?: string
   TaskRoleArn?: string
   Volumes?: any[]
 }
