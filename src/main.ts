@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import {EcsServicePatchRequest, ServicePatchRequest, UserTenant} from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
-import {Observable, forkJoin, of, EMPTY} from 'rxjs'
+import {EMPTY, Observable, forkJoin, of} from 'rxjs'
 import {ServicePatchResult, ServiceUpdater} from './service-updater'
 import {DataSource} from './duplocloud/datasource'
 import {DuploHttpClient} from './duplocloud/httpclient'
@@ -33,6 +33,9 @@ async function updateServices(ds: DataSource, tenant: UserTenant): Promise<Servi
     ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : EMPTY,
     ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : EMPTY
   }).toPromise()
+
+  // eslint-disable-next-line no-console
+  console.log(lookups)
 
   // Create the service updater instances.
   const updaters: {[name: string]: ServiceUpdater | EcsServiceUpdater} = {}
