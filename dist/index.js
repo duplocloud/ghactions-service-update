@@ -578,10 +578,10 @@ function updateServices(ds, tenant) {
         }
         // Collect information about the services to update
         const lookups = yield (0, rxjs_1.forkJoin)({
-            services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : [],
-            pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : [],
-            ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : [],
-            ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : []
+            services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : rxjs_1.EMPTY,
+            pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : rxjs_1.EMPTY,
+            ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : rxjs_1.EMPTY,
+            ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : rxjs_1.EMPTY
         }).toPromise();
         // Create the service updater instances.
         const updaters = {};
