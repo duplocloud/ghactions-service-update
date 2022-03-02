@@ -9,6 +9,8 @@ const tenantId = process.env.duplo_tenant_id
 if (!tenantId) {
   console.log('Skipping service updater tests: duplo_tenant_id env var missing or empty')
 } else {
+  jest.setTimeout(15000)
+
   test('EcsServiceUpdater: can patch an ECS service', async () => {
     const ds = new DataSource(new DuploHttpClient())
 

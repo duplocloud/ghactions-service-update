@@ -567,33 +567,43 @@ const httpclient_1 = __nccwpck_require__(6840);
  * @returns a map of service name to API call status
  */
 function updateServices(ds, tenant) {
+    var _a, _b, _c, _d;
     return __awaiter(this, void 0, void 0, function* () {
         // Parse requested updates.
         const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
         const haveServiceUpdates = !!serviceUpdates.length;
         const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
         const haveEcsUpdates = !!ecsUpdates.length;
+        if (!haveServiceUpdates && !haveEcsUpdates) {
+            throw new Error('services or ecs_services must be set: nothing to do');
+        }
         // Collect information about the services to update
-        const lookups = yield (0, rxjs_1.forkJoin)({
-            services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : [],
-            pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : [],
-            ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : [],
-            ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : []
-        }).toPromise();
+        const lookupApis = {};
+        if (haveServiceUpdates) {
+            lookupApis.services = ds.getReplicationControllers(tenant.TenantId);
+            lookupApis.pods = ds.getPods(tenant.TenantId);
+        }
+        if (haveEcsUpdates) {
+            lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId);
+            lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
+        }
+        const lookups = yield (0, rxjs_1.forkJoin)(lookupApis).toPromise();
+        // eslint-disable-next-line no-console
+        console.log(lookups);
         // Create the service updater instances.
         const updaters = {};
         for (const desired of serviceUpdates) {
-            const existing = lookups.services.find(svc => svc.Name === desired.Name);
+            const existing = (_a = lookups.services) === null || _a === void 0 ? void 0 : _a.find(svc => svc.Name === desired.Name);
             if (!existing)
                 throw new Error(`No such duplo service: ${desired.Name}`);
-            const pods = lookups.pods.filter(pod => pod.Name === desired.Name);
+            const pods = ((_b = lookups.pods) === null || _b === void 0 ? void 0 : _b.filter(pod => pod.Name === desired.Name)) || [];
             updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
         }
         for (const desired of ecsUpdates) {
-            const existingService = lookups.ecsServices.find(svc => svc.Name === desired.Name);
+            const existingService = (_c = lookups.ecsServices) === null || _c === void 0 ? void 0 : _c.find(svc => svc.Name === desired.Name);
             if (!existingService)
                 throw new Error(`No such ECS service: ${desired.Name}`);
-            const existingTaskDefArn = lookups.ecsTaskDefs.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
+            const existingTaskDefArn = (_d = lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
             if (!existingTaskDefArn)
                 throw new Error(`Cannot find ECS task definition ARN for: ${desired.Name}`);
             updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);

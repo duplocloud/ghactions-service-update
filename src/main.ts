@@ -1,5 +1,13 @@
 import * as core from '@actions/core'
-import {EcsServicePatchRequest, ServicePatchRequest, UserTenant} from './duplocloud/model'
+import {
+  EcsServiceModel,
+  EcsServicePatchRequest,
+  EcsTaskDefinitionArn,
+  Pod,
+  ReplicationController,
+  ServicePatchRequest,
+  UserTenant
+} from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
 import {Observable, forkJoin} from 'rxjs'
 import {ServicePatchResult, ServiceUpdater} from './service-updater'
@@ -8,6 +16,20 @@ import {DuploHttpClient} from './duplocloud/httpclient'
 
 interface ServicePatchResults {
   [name: string]: ServicePatchResult
+}
+
+interface ServiceLookupApis {
+  services?: Observable<ReplicationController[]>
+  pods?: Observable<Pod[]>
+  ecsServices?: Observable<EcsServiceModel[]>
+  ecsTaskDefs?: Observable<EcsTaskDefinitionArn[]>
+}
+
+interface ServiceLookups {
+  services?: ReplicationController[]
+  pods?: Pod[]
+  ecsServices?: EcsServiceModel[]
+  ecsTaskDefs?: EcsTaskDefinitionArn[]
 }
 
 /**
@@ -22,28 +44,38 @@ async function updateServices(ds: DataSource, tenant: UserTenant): Promise<Servi
   const haveServiceUpdates = !!serviceUpdates.length
   const ecsUpdates: EcsServicePatchRequest[] = JSON.parse(core.getInput('ecs_services') || '[]')
   const haveEcsUpdates = !!ecsUpdates.length
+  if (!haveServiceUpdates && !haveEcsUpdates) {
+    throw new Error('services or ecs_services must be set: nothing to do')
+  }
 
   // Collect information about the services to update
-  const lookups = await forkJoin({
-    services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : [],
-    pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : [],
-    ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : [],
-    ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : []
-  }).toPromise()
+  const lookupApis: ServiceLookupApis = {}
+  if (haveServiceUpdates) {
+    lookupApis.services = ds.getReplicationControllers(tenant.TenantId)
+    lookupApis.pods = ds.getPods(tenant.TenantId)
+  }
+  if (haveEcsUpdates) {
+    lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId)
+    lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId)
+  }
+  const lookups: ServiceLookups = await forkJoin(lookupApis).toPromise()
 
   // Create the service updater instances.
   const updaters: {[name: string]: ServiceUpdater | EcsServiceUpdater} = {}
   for (const desired of serviceUpdates) {
-    const existing = lookups.services.find(svc => svc.Name === desired.Name)
+    const existing = lookups.services?.find(svc => svc.Name === desired.Name)
     if (!existing) throw new Error(`No such duplo service: ${desired.Name}`)
 
-    const pods = lookups.pods.filter(pod => pod.Name === desired.Name)
+    const pods = lookups.pods?.filter(pod => pod.Name === desired.Name) || []
     updaters[desired.Name] = new ServiceUpdater(tenant, desired, existing, pods, ds)
   }
   for (const desired of ecsUpdates) {
-    const existingService = lookups.ecsServices.find(svc => svc.Name === desired.Name)
+    const existingService = lookups.ecsServices?.find(svc => svc.Name === desired.Name)
     if (!existingService) throw new Error(`No such ECS service: ${desired.Name}`)
-    const existingTaskDefArn = lookups.ecsTaskDefs.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition)
+
+    const existingTaskDefArn = lookups.ecsTaskDefs?.find(
+      svc => svc.TaskDefinitionArn === existingService.TaskDefinition
+    )
     if (!existingTaskDefArn) throw new Error(`Cannot find ECS task definition ARN for: ${desired.Name}`)
 
     updaters[desired.Name] = new EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds)

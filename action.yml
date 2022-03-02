@@ -6,8 +6,13 @@ inputs:
     required: true
     description: 'Tenant name or ID'
   services:
-    required: true
+    required: false
     description: 'JSON for the services to be updated'
+    default: '[]'
+  ecs_services:
+    required: false
+    description: 'JSON for the ECS services to be updated'
+    default: '[]'
   duplo_host:
     required: false
     description: 'Base URL of the Duplo installation (no trailing slash) - defaults to duplo_host env var'
