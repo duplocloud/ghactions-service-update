@@ -1,7 +1,33 @@
-import {Pod, ReplicationController, ServicePatchRequest, UserTenant} from './model'
+import {
+  EcsServiceModel,
+  EcsTaskDefinition,
+  EcsTaskDefinitionArn,
+  Pod,
+  ReplicationController,
+  ServicePatchRequest,
+  UserTenant
+} from './model'
 import {DuploHttpClient} from './httpclient'
 import {Observable} from 'rxjs'
 import {map} from 'rxjs/operators'
+
+/**
+ * A convenience type representing all types that we know how to extract error messages from.
+ */
+export type ErrorMessage = string | ErrorEvent | {message: string}
+
+export function extractErrorMessage(err: ErrorMessage): string {
+  // Script error.
+  if (err instanceof ErrorEvent) return err.error.message
+
+  // Plain text error.
+  if (typeof err == 'string') return err
+
+  // Error from API calls.
+  if (err?.message) return err.message
+
+  return 'An unexpected error occured!'
+}
 
 export class DataSource {
   constructor(private api: DuploHttpClient) {}
@@ -57,5 +83,47 @@ export class DataSource {
 
   getPodsByService(tenantId: string, name: string): Observable<Pod[]> {
     return this.getPods(tenantId).pipe(map(pods => pods.filter(p => p.Name === name)))
+  }
+
+  getAllEcsServices(tenantId: string): Observable<EcsServiceModel[]> {
+    return this.api.get<EcsServiceModel[]>(`/subscriptions/${tenantId}/GetEcsServices`).pipe(
+      map(list => {
+        return list.map(item => new EcsServiceModel(item))
+      })
+    )
+  }
+
+  getEcsService(tenantId: string, taskDefFamilyName: string): Observable<EcsServiceModel | undefined> {
+    return this.getAllEcsServices(tenantId).pipe(
+      map(list => list.find(item => item.TaskDefinition.includes(`${taskDefFamilyName}:`)))
+    )
+  }
+
+  updateEcsService(tenantId: string, ecsService: EcsServiceModel): Observable<string> {
+    return this.api.post<string>(`/subscriptions/${tenantId}/UpdateEcsService`, ecsService)
+  }
+
+  getAllEcsTaskDefArns(tenantId: string): Observable<EcsTaskDefinitionArn[]> {
+    return this.api.get<EcsTaskDefinitionArn[]>(`/subscriptions/${tenantId}/GetEcsTaskDefinitionArns`).pipe(
+      map(list => {
+        return list.map(item => new EcsTaskDefinitionArn(`${item}`))
+      })
+    )
+  }
+
+  getEcsTaskDefArn(tenantId: string, taskDefFamilyName: string): Observable<EcsTaskDefinitionArn[]> {
+    return this.getAllEcsTaskDefArns(tenantId).pipe(
+      map(list => list.filter(item => item.TaskDefinitionArn.includes(`/${taskDefFamilyName}:`)))
+    )
+  }
+
+  getTaskDefinitionDetails(tenantId: string, taskDefinitionArn: string): Observable<EcsTaskDefinition> {
+    return this.api
+      .post<EcsTaskDefinition>(`/subscriptions/${tenantId}/FindEcsTaskDefinition`, {Arn: taskDefinitionArn})
+      .pipe(map(list => new EcsTaskDefinition(list)))
+  }
+
+  updateEcsTaskDefinition(tenantId: string, taskDef: EcsTaskDefinition): Observable<string> {
+    return this.api.post<string>(`/subscriptions/${tenantId}/UpdateEcsTaskDefinition`, taskDef)
   }
 }

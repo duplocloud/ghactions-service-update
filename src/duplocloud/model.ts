@@ -1,8 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-shadow */
+
 // API object:  a key / value pair
 export interface KeyStringValue {
   Key: string
   Value: string
+}
+
+export interface StringValue {
+  Value: string
+}
+
+export interface Named {
+  Name: string
 }
 
 // API object:  custom data
@@ -62,6 +72,11 @@ export class UserTenant {
 // API object: A request to patch a service.
 export class ServicePatchRequest {
   constructor(public Name: string, public Image: string, public AgentPlatform?: AgentPlatform) {}
+}
+
+// A request to patch an ECS service.
+export class EcsServicePatchRequest {
+  constructor(public Name: string, public Image: string) {}
 }
 
 export class ReplicationController {
@@ -216,4 +231,193 @@ export class Pod {
   get DockerId(): string {
     return this.Containers[0]?.DockerId
   }
+}
+export class CapacityProviderStrategy {
+  constructor(prop?: Partial<CapacityProviderStrategy>) {
+    Object.assign(this, prop || {})
+  }
+
+  CapacityProvider?: string
+  Base?: number
+  Weight?: number
+}
+
+export class EcsTaskDefinitionArn {
+  constructor(public TaskDefinitionArn: string) {}
+}
+
+export class EcsServiceModel {
+  constructor(properties?: Partial<EcsServiceModel>) {
+    Object.assign(this, properties || {})
+  }
+
+  Name!: string
+  TaskDefinition!: string
+  Replicas!: number
+  IsTargetGroupOnly?: boolean
+  HealthCheckGracePeriodSeconds?: number
+  LBConfigurations?: LBConfiguration[]
+  CapacityProviderStrategy?: CapacityProviderStrategy[]
+  OldTaskDefinitionBufferSize?: number
+  DnsPrfx?: string
+
+  getServiceName(tenantName: string): string {
+    return `duploservices-${tenantName}-${this.Name}`
+  }
+}
+
+export enum LBType {
+  Classic = 0,
+  Application = 1,
+  HealthCheck = 2,
+  K8SClusterIP = 3,
+  K8SNodePort = 4,
+  NLB = 6
+}
+
+export class LbHealthCheckConfig {
+  constructor(properties?: Partial<LbHealthCheckConfig>) {
+    Object.assign(this, properties || {})
+  }
+  HealthyThresholdCount?: number
+  UnhealthyThresholdCount?: number
+  HealthCheckTimeoutSeconds?: number
+  HealthCheckIntervalSeconds?: number
+  HttpSuccessCode?: string
+  GrpcSuccessCode?: string
+}
+
+export class LBConfiguration {
+  constructor(prop?: Partial<LBConfiguration>) {
+    Object.assign(this, prop || {})
+  }
+
+  ReplicationControllerName!: string
+  Protocol!: string
+  Port!: number
+  DIPAddresses?: object[]
+  HostPort?: number
+  IsInfraDeployment?: boolean
+  DnsName?: string
+  CertificateArn?: string
+  ExternalPort!: number
+  IsInternal?: boolean
+  CloudName?: string
+  ForHealthCheck?: boolean
+  HealthCheckUrl?: string
+  IsNative?: boolean
+  LbType!: LBType
+  TgCount?: number
+  ExternalTrafficPolicy?: string
+  BeProtocolVersion?: string
+  FrontendIp?: string
+  HealthCheckConfig?: LbHealthCheckConfig
+
+  get lbTypeString(): string {
+    const lbTypeDesc = {0: 'Classic', 1: 'ALB', 2: 'Health Check', 3: 'K8S Cluster IP', 4: 'K8S Node Port', 6: 'NLB'}
+    return lbTypeDesc[this.LbType]
+  }
+
+  get isCloudLB(): boolean {
+    return this.LbType === LBType.Application || this.LbType === LBType.Classic
+  }
+
+  get isK8sOnly(): boolean {
+    return this.LbType === LBType.K8SClusterIP || this.LbType === LBType.K8SNodePort
+  }
+}
+
+export class EcsTaskDefinition {
+  constructor(properties?: Partial<EcsTaskDefinition>) {
+    Object.assign(this, properties || {})
+  }
+
+  Compatibilities?: string[]
+  ContainerDefinitions!: ContainerDefinition[]
+  Cpu?: string
+  DeregisteredAt?: string
+  ExecutionRoleArn?: string
+  Family!: string
+  InferenceAccelerators?: any[]
+  Memory?: string
+  NetworkMode?: StringValue
+  PlacementConstraints?: any[]
+  RegisteredAt?: string
+  RegisteredBy?: string
+  RequiresAttributes?: Named[]
+  RequiresCompatibilities?: string[]
+  Revision?: number
+  Status?: StringValue
+  TaskDefinitionArn?: string
+  TaskRoleArn?: string
+  Volumes?: any[]
+}
+
+export class ContainerDefinition {
+  constructor(properties?: Partial<ContainerDefinition>) {
+    Object.assign(this, properties || {})
+  }
+
+  Command!: string[]
+  Cpu?: number
+  DependsOn?: string[]
+  DisableNetworking?: boolean
+  DnsSearchDomains?: string[]
+  DnsServers?: string[]
+  DockerLabels?: any
+  DockerSecurityOptions?: any[]
+  EntryPoint?: string[]
+  Environment?: Environment[]
+  EnvironmentFiles?: any[]
+  Essential?: boolean
+  ExtraHosts?: string[]
+  Image!: string
+  Interactive?: boolean
+  Links?: any[]
+  LinuxParameters?: LinuxParameters
+  Memory?: number
+  MemoryReservation?: number
+  HealthCheck?: any
+  MountPoints?: any[]
+  Name: string = 'default'
+  PortMappings?: PortMapping[]
+  Privileged?: boolean
+  PseudoTerminal?: boolean
+  ReadonlyRootFilesystem?: boolean
+  ResourceRequirements?: any[]
+  Secrets?: any[]
+  StartTimeout?: number
+  StopTimeout?: number
+  SystemControls?: any[]
+  Ulimits?: any[]
+  VolumesFrom?: any[]
+}
+
+export class Environment {
+  constructor(properties?: Partial<Environment>) {
+    Object.assign(this, properties || {})
+  }
+  Name!: string
+  Value!: string
+}
+
+export class LinuxParameters {
+  constructor(properties?: Partial<LinuxParameters>) {
+    Object.assign(this, properties || {})
+  }
+  Devices?: any[]
+  InitProcessEnabled?: boolean
+  MaxSwap?: number
+  SharedMemorySize?: number
+  Swappiness?: number
+  Tmpfs?: any[]
+}
+
+export class PortMapping {
+  constructor(properties?: Partial<PortMapping>) {
+    Object.assign(this, properties || {})
+  }
+  ContainerPort!: number
+  HostPort?: number
+  Protocol?: StringValue
 }

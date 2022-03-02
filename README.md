@@ -10,6 +10,8 @@ This action will update one or more services running in Duplo.
 
 Here is an example of what to put in your `.github/workflows/build-and-deploy.yml` file to use this workflow.
 
+## Example updating a Duplo service
+
 ```yaml
 name: Build and Deploy
 on:
@@ -34,3 +36,28 @@ jobs:
             ]
 ```
 
+## Example updating an ECS service
+
+```yaml
+name: Build and Deploy
+on:
+  push:
+    branches:
+      - develop # branch to trigger on
+jobs:
+  deploy:
+    # This example updates a service named "nginx" to use an image "nginx:latest"
+    name: Deploy with DuploCloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: service-update
+        uses: duplocloud/ghactions-service-update@master
+        with:
+          duplo_host: https://mysystem.duplocloud.net
+          duplo_token: ${{ secrets.DUPLO_TOKEN }}
+          tenant: default
+          ecs_services: |-
+            [
+              { "Name": "nginx", "Image": "nginx:latest" }
+            ]
+```
