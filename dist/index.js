@@ -588,8 +588,6 @@ function updateServices(ds, tenant) {
             lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
         }
         const lookups = yield (0, rxjs_1.forkJoin)(lookupApis).toPromise();
-        // eslint-disable-next-line no-console
-        console.log(lookups);
         // Create the service updater instances.
         const updaters = {};
         for (const desired of serviceUpdates) {
