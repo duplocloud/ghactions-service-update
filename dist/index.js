@@ -53,6 +53,33 @@ class DataSource {
     getPodsByService(tenantId, name) {
         return this.getPods(tenantId).pipe((0, operators_1.map)(pods => pods.filter(p => p.Name === name)));
     }
+    getAllEcsServices(tenantId) {
+        return this.api.get(`/subscriptions/${tenantId}/GetEcsServices`).pipe((0, operators_1.map)(list => {
+            return list.map(item => new model_1.EcsServiceModel(item));
+        }));
+    }
+    getEcsService(tenantId, taskDefFamilyName) {
+        return this.getAllEcsServices(tenantId).pipe((0, operators_1.map)(list => list.find(item => item.TaskDefinition.includes(`${taskDefFamilyName}:`))));
+    }
+    updateEcsService(tenantId, ecsService) {
+        return this.api.post(`/subscriptions/${tenantId}/UpdateEcsService`, ecsService);
+    }
+    getAllEcsTaskDefArns(tenantId) {
+        return this.api.get(`/subscriptions/${tenantId}/GetEcsTaskDefinitionArns`).pipe((0, operators_1.map)(list => {
+            return list.map(item => new model_1.EcsTaskDefinitionArn(`${item}`));
+        }));
+    }
+    getEcsTaskDefArn(tenantId, taskDefFamilyName) {
+        return this.getAllEcsTaskDefArns(tenantId).pipe((0, operators_1.map)(list => list.filter(item => item.TaskDefinitionArn.includes(`/${taskDefFamilyName}:`))));
+    }
+    getTaskDefinitionDetails(tenantId, taskDefinitionArn) {
+        return this.api
+            .post(`/subscriptions/${tenantId}/FindEcsTaskDefinition`, { Arn: taskDefinitionArn })
+            .pipe((0, operators_1.map)(list => new model_1.EcsTaskDefinition(list)));
+    }
+    updateEcsTaskDefinition(tenantId, taskDef) {
+        return this.api.post(`/subscriptions/${tenantId}/UpdateEcsTaskDefinition`, taskDef);
+    }
 }
 exports.DataSource = DataSource;
 
@@ -124,8 +151,10 @@ exports.DuploHttpClient = DuploHttpClient;
 
 "use strict";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable no-shadow */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
+exports.PortMapping = exports.LinuxParameters = exports.Environment = exports.ContainerDefinition = exports.EcsTaskDefinition = exports.LBConfiguration = exports.LbHealthCheckConfig = exports.LBType = exports.EcsServiceModel = exports.EcsTaskDefinitionArn = exports.CapacityProviderStrategy = exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.EcsServicePatchRequest = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
 // API object:  custom data
 class CustomData {
     constructor(properties) {
@@ -176,6 +205,14 @@ class ServicePatchRequest {
     }
 }
 exports.ServicePatchRequest = ServicePatchRequest;
+// A request to patch an ECS service.
+class EcsServicePatchRequest {
+    constructor(Name, Image) {
+        this.Name = Name;
+        this.Image = Image;
+    }
+}
+exports.EcsServicePatchRequest = EcsServicePatchRequest;
 class ReplicationController {
     /** Convenience constructor for deserialization or cloning.  */
     constructor(properties) {
@@ -259,6 +296,179 @@ class Pod {
     }
 }
 exports.Pod = Pod;
+class CapacityProviderStrategy {
+    constructor(prop) {
+        Object.assign(this, prop || {});
+    }
+}
+exports.CapacityProviderStrategy = CapacityProviderStrategy;
+class EcsTaskDefinitionArn {
+    constructor(TaskDefinitionArn) {
+        this.TaskDefinitionArn = TaskDefinitionArn;
+    }
+}
+exports.EcsTaskDefinitionArn = EcsTaskDefinitionArn;
+class EcsServiceModel {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+    getServiceName(tenantName) {
+        return `duploservices-${tenantName}-${this.Name}`;
+    }
+}
+exports.EcsServiceModel = EcsServiceModel;
+var LBType;
+(function (LBType) {
+    LBType[LBType["Classic"] = 0] = "Classic";
+    LBType[LBType["Application"] = 1] = "Application";
+    LBType[LBType["HealthCheck"] = 2] = "HealthCheck";
+    LBType[LBType["K8SClusterIP"] = 3] = "K8SClusterIP";
+    LBType[LBType["K8SNodePort"] = 4] = "K8SNodePort";
+    LBType[LBType["NLB"] = 6] = "NLB";
+})(LBType = exports.LBType || (exports.LBType = {}));
+class LbHealthCheckConfig {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.LbHealthCheckConfig = LbHealthCheckConfig;
+class LBConfiguration {
+    constructor(prop) {
+        Object.assign(this, prop || {});
+    }
+    get lbTypeString() {
+        const lbTypeDesc = { 0: 'Classic', 1: 'ALB', 2: 'Health Check', 3: 'K8S Cluster IP', 4: 'K8S Node Port', 6: 'NLB' };
+        return lbTypeDesc[this.LbType];
+    }
+    get isCloudLB() {
+        return this.LbType === LBType.Application || this.LbType === LBType.Classic;
+    }
+    get isK8sOnly() {
+        return this.LbType === LBType.K8SClusterIP || this.LbType === LBType.K8SNodePort;
+    }
+}
+exports.LBConfiguration = LBConfiguration;
+class EcsTaskDefinition {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.EcsTaskDefinition = EcsTaskDefinition;
+class ContainerDefinition {
+    constructor(properties) {
+        this.Name = 'default';
+        Object.assign(this, properties || {});
+    }
+}
+exports.ContainerDefinition = ContainerDefinition;
+class Environment {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.Environment = Environment;
+class LinuxParameters {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.LinuxParameters = LinuxParameters;
+class PortMapping {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.PortMapping = PortMapping;
+
+
+/***/ }),
+
+/***/ 2039:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.EcsServiceUpdater = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+const model_1 = __nccwpck_require__(5159);
+const rxjs_1 = __nccwpck_require__(5805);
+const operators_1 = __nccwpck_require__(7801);
+class EcsServiceUpdater {
+    constructor(tenant, desired, existingService, existingTaskDefArn, ds) {
+        var _a, _b;
+        this.tenant = tenant;
+        this.desired = desired;
+        this.existingService = existingService;
+        this.existingTaskDefArn = existingTaskDefArn;
+        this.ds = ds;
+        if (!((_a = desired === null || desired === void 0 ? void 0 : desired.Name) === null || _a === void 0 ? void 0 : _a.length))
+            throw new Error('service.Name: missing or empty');
+        if (!((_b = desired === null || desired === void 0 ? void 0 : desired.Image) === null || _b === void 0 ? void 0 : _b.length))
+            throw new Error('service.Image: missing or empty');
+        this.name = desired.Name;
+    }
+    buildServiceUpdate() {
+        // Find the task definition.
+        return this.ds.getTaskDefinitionDetails(this.tenant.TenantId, this.existingTaskDefArn.TaskDefinitionArn).pipe((0, operators_1.mergeMap)(existingTaskDef => {
+            var _a;
+            // Find the container to update.
+            const ImagePrev = (_a = existingTaskDef.ContainerDefinitions.find(cnt => cnt.Name === 'default')) === null || _a === void 0 ? void 0 : _a.Image;
+            if (!ImagePrev)
+                throw new Error(`ECS service: ${this.name}: cannot find default container`);
+            // Create a new task definition, replacing the default container's image.
+            const desiredTaskDef = new model_1.EcsTaskDefinition(existingTaskDef);
+            desiredTaskDef.ContainerDefinitions = desiredTaskDef.ContainerDefinitions.map(cnt => {
+                let desiredContainer = cnt;
+                if (cnt.Name === 'default') {
+                    desiredContainer = new model_1.ContainerDefinition(cnt);
+                    desiredContainer.Image = this.desired.Image;
+                }
+                return cnt;
+            });
+            // Build the API call and prepare to output status about the API call
+            return this.ds.updateEcsTaskDefinition(this.tenant.TenantId, desiredTaskDef).pipe((0, operators_1.mergeMap)(taskDefArn => {
+                core.info(`Updated ECS task definition: ${this.desired.Name}: ${taskDefArn}`);
+                // Patch the ECS service, replacing the task definition.
+                const desiredService = new model_1.EcsServiceModel(this.existingService);
+                desiredService.TaskDefinition = taskDefArn;
+                return this.ds.updateEcsService(this.tenant.TenantId, desiredService).pipe((0, operators_1.map)(() => {
+                    core.info(`Updated ECS service: ${this.desired.Name}`);
+                    return { ImagePrev, UpdateSucceeded: true };
+                }), (0, operators_1.catchError)(err => {
+                    core.error(`Failed to update ECS service: ${JSON.stringify(err)}`);
+                    return (0, rxjs_1.of)({ ImagePrev, UpdateSucceeded: false });
+                }));
+            }), (0, operators_1.catchError)(err => {
+                core.error(`Failed to update ECS task definition: ${JSON.stringify(err)}`);
+                return (0, rxjs_1.of)({ ImagePrev, UpdateSucceeded: false });
+            }));
+        }), (0, operators_1.catchError)(err => {
+            core.error(`Failed to find ECS task definition: ${JSON.stringify(err)}`);
+            return (0, rxjs_1.of)({ ImagePrev: '', UpdateSucceeded: false });
+        }));
+    }
+}
+exports.EcsServiceUpdater = EcsServiceUpdater;
 
 
 /***/ }),
@@ -298,6 +508,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const ecs_service_updater_1 = __nccwpck_require__(2039);
 const rxjs_1 = __nccwpck_require__(5805);
 const service_updater_1 = __nccwpck_require__(7653);
 const datasource_1 = __nccwpck_require__(8835);
@@ -310,20 +521,35 @@ const httpclient_1 = __nccwpck_require__(6840);
  */
 function updateServices(ds, tenant) {
     return __awaiter(this, void 0, void 0, function* () {
+        // Parse requested updates.
+        const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
+        const haveServiceUpdates = !!serviceUpdates.length;
+        const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
+        const haveEcsUpdates = !!ecsUpdates.length;
         // Collect information about the services to update
-        const serviceUpdates = JSON.parse(core.getInput('services'));
         const lookups = yield (0, rxjs_1.forkJoin)({
-            services: ds.getReplicationControllers(tenant.TenantId),
-            pods: ds.getPods(tenant.TenantId)
+            services: haveServiceUpdates ? ds.getReplicationControllers(tenant.TenantId) : [],
+            pods: haveServiceUpdates ? ds.getPods(tenant.TenantId) : [],
+            ecsServices: haveEcsUpdates ? ds.getAllEcsServices(tenant.TenantId) : [],
+            ecsTaskDefs: haveEcsUpdates ? ds.getAllEcsTaskDefArns(tenant.TenantId) : []
         }).toPromise();
         // Create the service updater instances.
         const updaters = {};
         for (const desired of serviceUpdates) {
             const existing = lookups.services.find(svc => svc.Name === desired.Name);
             if (!existing)
-                throw new Error(`No such service: ${desired.Name}`);
+                throw new Error(`No such duplo service: ${desired.Name}`);
             const pods = lookups.pods.filter(pod => pod.Name === desired.Name);
             updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
+        }
+        for (const desired of ecsUpdates) {
+            const existingService = lookups.ecsServices.find(svc => svc.Name === desired.Name);
+            if (!existingService)
+                throw new Error(`No such ECS service: ${desired.Name}`);
+            const existingTaskDefArn = lookups.ecsTaskDefs.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
+            if (!existingTaskDefArn)
+                throw new Error(`Cannot find ECS task definition ARN for: ${desired.Name}`);
+            updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
         }
         // Build the updates to execute in parallel.
         const apiCalls = {};
