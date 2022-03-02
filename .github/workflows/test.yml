@@ -5,7 +5,7 @@ on:
     branches:
       - develop
       - master
-      - 'releases/*'
+      - 'release/*'
 env:
   duplo_host: ${{ secrets.DUPLO_HOST }}
   duplo_token: ${{ secrets.DUPLO_TOKEN }}
