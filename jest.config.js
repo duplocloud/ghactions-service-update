@@ -1,11 +1,8 @@
+/** @type {import('ts-jest/dist/types').InitialOptionsTsJest} */
 module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
   clearMocks: true,
-  moduleDirectories: ["node_modules", "src"],
-  moduleFileExtensions: ["js", "jsx", "ts", "tsx"],
   testMatch: ['**/*.test.ts'],
-  transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest',
-    "^.+\\.(js|jsx)$": "babel-jest",
-  },
   verbose: true
-}
+};
