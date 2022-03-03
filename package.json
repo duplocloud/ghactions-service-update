@@ -34,6 +34,7 @@
     "@babel/preset-env": "^7.16.11",
     "@babel/preset-typescript": "^7.16.7",
     "@types/node": "^16.10.5",
+    "@types/jest": "^27.4.1",
     "@typescript-eslint/parser": "^5.8.1",
     "@vercel/ncc": "^0.31.1",
     "babel-jest": "^27.1.2",
