@@ -22,7 +22,7 @@ jobs:
           node-version: 16.x
       - uses: actions/checkout@v2
       - run: npm install
-      - run: npm ci
+      - run: npm run ci-commit
   test: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
     name: "Test Action Usage"
