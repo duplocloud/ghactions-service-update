@@ -5,14 +5,7 @@ import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of, throwError} from 'rxjs'
-import {
-  AgentPlatform,
-  Pod,
-  PodContainer,
-  PodTemplate,
-  ReplicationController,
-  UserTenant
-} from '../src/duplocloud/model'
+import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 
 jest.mock('@actions/core')

@@ -165,7 +165,7 @@ exports.DuploHttpClient = DuploHttpClient;
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-shadow */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PortMapping = exports.LinuxParameters = exports.Environment = exports.ContainerDefinition = exports.EcsTaskDefinition = exports.LBConfiguration = exports.LbHealthCheckConfig = exports.LBType = exports.EcsServiceModel = exports.EcsTaskDefinitionArn = exports.CapacityProviderStrategy = exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.EcsServicePatchRequest = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
+exports.PortMapping = exports.LinuxParameters = exports.Environment = exports.ContainerDefinition = exports.EcsTaskDefinition = exports.LBConfiguration = exports.LbHealthCheckConfig = exports.LBType = exports.EcsServiceModel = exports.EcsTaskDefinitionArn = exports.CapacityProviderStrategy = exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.EcsServicePatchRequest = exports.ReplicationControllerChangeRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
 // API object:  custom data
 class CustomData {
     constructor(properties) {
@@ -208,19 +208,16 @@ class UserTenant {
 }
 exports.UserTenant = UserTenant;
 // API object: A request to patch a service.
-class ServicePatchRequest {
-    constructor(Name, Image, AgentPlatform) {
-        this.Name = Name;
-        this.Image = Image;
-        this.AgentPlatform = AgentPlatform;
+class ReplicationControllerChangeRequest {
+    constructor(properties) {
+        Object.assign(this, properties || {});
     }
 }
-exports.ServicePatchRequest = ServicePatchRequest;
+exports.ReplicationControllerChangeRequest = ReplicationControllerChangeRequest;
 // A request to patch an ECS service.
 class EcsServicePatchRequest {
-    constructor(Name, Image) {
-        this.Name = Name;
-        this.Image = Image;
+    constructor(properties) {
+        Object.assign(this, properties || {});
     }
 }
 exports.EcsServicePatchRequest = EcsServicePatchRequest;
@@ -706,11 +703,18 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ServiceUpdater = void 0;
+exports.ServiceUpdater = exports.ServiceUpdateRequest = void 0;
 const core = __importStar(__nccwpck_require__(2186));
+const model_1 = __nccwpck_require__(5159);
+const datasource_1 = __nccwpck_require__(8835);
 const rxjs_1 = __nccwpck_require__(5805);
 const operators_1 = __nccwpck_require__(7801);
-const datasource_1 = __nccwpck_require__(8835);
+class ServiceUpdateRequest {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.ServiceUpdateRequest = ServiceUpdateRequest;
 class ServiceUpdater {
     constructor(tenant, desired, existing, pods, ds) {
         var _a, _b;
@@ -727,9 +731,9 @@ class ServiceUpdater {
     }
     buildServiceUpdate() {
         var _a, _b;
+        // Collect data about the existing service and pods.
         const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
         const Replicas = this.existing.Replicas;
-        // Find all existing pods, and remember when we first saw them.
         const Containers = this.pods
             .map(pod => {
             var _a, _b;
@@ -743,12 +747,17 @@ class ServiceUpdater {
             })) !== null && _b !== void 0 ? _b : [];
         })
             .flat();
-        // Pull in the agent platform, if it is missing.
-        if (!this.desired.AgentPlatform && this.desired.AgentPlatform !== 0) {
-            this.desired.AgentPlatform = (_b = this.existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
+        // Build the change request.
+        const rq = new model_1.ReplicationControllerChangeRequest({
+            Name: this.desired.Name,
+            Image: this.desired.Image,
+            AgentPlatform: this.desired.AgentPlatform
+        });
+        if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
+            rq.AgentPlatform = (_b = this.existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
         }
         // Build the API call and prepare to output status about the API call
-        return this.ds.patchService(this.tenant.TenantId, this.desired).pipe((0, operators_1.map)(rp => {
+        return this.ds.patchService(this.tenant.TenantId, rq).pipe((0, operators_1.map)(rp => {
             core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`);
             return { ImagePrev, Replicas, Containers, UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
         }), (0, operators_1.catchError)(err => {
