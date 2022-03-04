@@ -1,14 +1,40 @@
 import * as core from '@actions/core'
-import {Observable, of} from 'rxjs'
-import {Pod, ReplicationController, ServicePatchRequest, UserTenant} from './duplocloud/model'
-import {catchError, map} from 'rxjs/operators'
+import {
+  AgentPlatform,
+  K8sEnvEntry,
+  Pod,
+  ReplicationController,
+  ReplicationControllerChangeRequest,
+  UserTenant
+} from './duplocloud/model'
 import {DataSource, extractErrorMessage} from './duplocloud/datasource'
+import {Observable, of} from 'rxjs'
+import {catchError, map} from 'rxjs/operators'
 
 interface ServiceContainerStatus {
   DesiredStatus: number
   CurrentStatus: number
   DockerId: string
   FirstSeen: number // when did we first see this container? [new Date().getTime()]
+}
+
+export class ServiceUpdateRequest {
+  constructor(properties?: Partial<ServiceUpdateRequest>) {
+    Object.assign(this, properties || {})
+  }
+
+  Name!: string
+  Image!: string
+  AgentPlatform?: AgentPlatform
+
+  // Completely replaces environment variables.
+  Env?: {[name: string]: string} | K8sEnvEntry
+
+  // Merges on to of existing environment variables.
+  MergeEnv?: {[name: string]: string} | K8sEnvEntry
+
+  // Deletes the named environment variables.
+  DeleteEnv?: string[]
 }
 
 export interface ServicePatchResult {
@@ -26,7 +52,7 @@ export class ServiceUpdater {
 
   constructor(
     readonly tenant: UserTenant,
-    readonly desired: ServicePatchRequest,
+    readonly desired: ServiceUpdateRequest,
     readonly existing: ReplicationController,
     readonly pods: Pod[],
     readonly ds: DataSource
@@ -38,10 +64,9 @@ export class ServiceUpdater {
   }
 
   buildServiceUpdate(): Observable<ServicePatchResult> {
+    // Collect data about the existing service and pods.
     const ImagePrev = this.existing.Template?.Containers[0].Image
     const Replicas = this.existing.Replicas
-
-    // Find all existing pods, and remember when we first saw them.
     const Containers: ServiceContainerStatus[] = this.pods
       .map(
         pod =>
@@ -56,13 +81,18 @@ export class ServiceUpdater {
       )
       .flat()
 
-    // Pull in the agent platform, if it is missing.
-    if (!this.desired.AgentPlatform && this.desired.AgentPlatform !== 0) {
-      this.desired.AgentPlatform = this.existing.Template?.AgentPlatform
+    // Build the change request.
+    const rq = new ReplicationControllerChangeRequest({
+      Name: this.desired.Name,
+      Image: this.desired.Image,
+      AgentPlatform: this.desired.AgentPlatform
+    })
+    if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
+      rq.AgentPlatform = this.existing.Template?.AgentPlatform as AgentPlatform
     }
 
     // Build the API call and prepare to output status about the API call
-    return this.ds.patchService(this.tenant.TenantId, this.desired).pipe(
+    return this.ds.patchService(this.tenant.TenantId, rq).pipe(
       map(rp => {
         core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`)
         return {ImagePrev, Replicas, Containers, UpdateSucceeded: rp ?? true}

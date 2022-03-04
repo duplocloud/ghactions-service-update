@@ -1,7 +1,7 @@
 import {expect, jest} from '@jest/globals'
 
 import {Runner, ServicePatchResults} from '../src/runner'
-import {ServicePatchResult, ServiceUpdater} from '../src/service-updater'
+import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of, throwError} from 'rxjs'
@@ -11,7 +11,6 @@ import {
   PodContainer,
   PodTemplate,
   ReplicationController,
-  ServicePatchRequest,
   UserTenant
 } from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
@@ -96,7 +95,7 @@ describe('Runner unit', () => {
 
     describe('result', () => {
       // Different results for each test
-      let services: ServicePatchRequest[] = []
+      let services: ServiceUpdateRequest[] = []
       let successes: {[name: string]: boolean} = {}
 
       beforeAll(() => {
@@ -181,7 +180,7 @@ describe('Runner unit', () => {
 
     // Allow changing parameters for each test
     let tenant = tenantFaker()
-    let services: ServicePatchRequest[] = []
+    let services: ServiceUpdateRequest[] = []
     let rpcs: ReplicationController[] = []
     let pods: Pod[] = []
 
@@ -211,7 +210,7 @@ describe('Runner unit', () => {
       inputs['services'] = () => (services ? JSON.stringify(services) : '')
 
       // Default to mocking success.
-      mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => of(null))
+      mockPatchService.mockImplementation((tenantId: string, request: ServiceUpdateRequest) => of(null))
     })
 
     afterEach(() => {
@@ -229,7 +228,7 @@ describe('Runner unit', () => {
 
       it('propagates errors', async () => {
         // Mock failure
-        mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => throwError('boom!'))
+        mockPatchService.mockImplementation((tenantId: string, request: ServiceUpdateRequest) => throwError('boom!'))
 
         const result = await runner.updateServices(ds, tenant)
 
