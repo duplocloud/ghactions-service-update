@@ -520,7 +520,24 @@ exports.EcsServiceUpdater = EcsServiceUpdater;
 
 /***/ }),
 
-/***/ 3109:
+/***/ 6265:
+/***/ ((__unused_webpack_module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+if (!globalThis.fetch) {
+    const fetch = __nccwpck_require__(467);
+    globalThis.fetch = fetch;
+    globalThis.FormData = fetch.FormData;
+    globalThis.Headers = fetch.Headers;
+    globalThis.Request = fetch.Request;
+    globalThis.Response = fetch.Response;
+}
+
+
+/***/ }),
+
+/***/ 8209:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -554,70 +571,71 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Runner = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const ecs_service_updater_1 = __nccwpck_require__(2039);
 const rxjs_1 = __nccwpck_require__(5805);
 const service_updater_1 = __nccwpck_require__(7653);
 const datasource_1 = __nccwpck_require__(8835);
 const httpclient_1 = __nccwpck_require__(6840);
-/**
- * Updates one or more duplo services in parallel
- * @param ds      duplo API data source
- * @param tenant  duplo tenant being acted on
- * @returns a map of service name to API call status
- */
-function updateServices(ds, tenant) {
-    var _a, _b, _c, _d;
-    return __awaiter(this, void 0, void 0, function* () {
-        // Parse requested updates.
-        const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
-        const haveServiceUpdates = !!serviceUpdates.length;
-        const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
-        const haveEcsUpdates = !!ecsUpdates.length;
-        if (!haveServiceUpdates && !haveEcsUpdates) {
-            throw new Error('services or ecs_services must be set: nothing to do');
-        }
-        // Collect information about the services to update
-        const lookupApis = {};
-        if (haveServiceUpdates) {
-            lookupApis.services = ds.getReplicationControllers(tenant.TenantId);
-            lookupApis.pods = ds.getPods(tenant.TenantId);
-        }
-        if (haveEcsUpdates) {
-            lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId);
-            lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
-        }
-        const lookups = yield (0, rxjs_1.forkJoin)(lookupApis).toPromise();
-        // Create the service updater instances.
-        const updaters = {};
-        for (const desired of serviceUpdates) {
-            const existing = (_a = lookups.services) === null || _a === void 0 ? void 0 : _a.find(svc => svc.Name === desired.Name);
-            if (!existing)
-                throw new Error(`No such duplo service: ${desired.Name}`);
-            const pods = ((_b = lookups.pods) === null || _b === void 0 ? void 0 : _b.filter(pod => pod.Name === desired.Name)) || [];
-            updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
-        }
-        for (const desired of ecsUpdates) {
-            const existingService = (_c = lookups.ecsServices) === null || _c === void 0 ? void 0 : _c.find(svc => svc.Name === desired.Name);
-            if (!existingService)
-                throw new Error(`No such ECS service: ${desired.Name}`);
-            const existingTaskDefArn = (_d = lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
-            if (!existingTaskDefArn)
-                throw new Error(`Cannot find ECS task definition ARN for: ${desired.Name}`);
-            updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
-        }
-        // Build the updates to execute in parallel.
-        const apiCalls = {};
-        for (const desired of serviceUpdates) {
-            apiCalls[desired.Name] = updaters[desired.Name].buildServiceUpdate();
-        }
-        // Perform the updates in parallel, failing on error.
-        return (0, rxjs_1.forkJoin)(apiCalls).toPromise();
-    });
-}
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+class Runner {
+    /**
+     * Updates one or more duplo services in parallel
+     * @param ds      duplo API data source
+     * @param tenant  duplo tenant being acted on
+     * @returns a map of service name to API call status
+     */
+    updateServices(ds, tenant) {
+        var _a, _b, _c, _d;
+        return __awaiter(this, void 0, void 0, function* () {
+            // Parse requested updates.
+            const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
+            const haveServiceUpdates = !!serviceUpdates.length;
+            const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
+            const haveEcsUpdates = !!ecsUpdates.length;
+            if (!haveServiceUpdates && !haveEcsUpdates) {
+                throw new Error();
+            }
+            // Collect information about the services to update
+            const lookupApis = {};
+            if (haveServiceUpdates) {
+                lookupApis.services = ds.getReplicationControllers(tenant.TenantId);
+                lookupApis.pods = ds.getPods(tenant.TenantId);
+            }
+            if (haveEcsUpdates) {
+                lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId);
+                lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
+            }
+            const lookups = yield (0, rxjs_1.forkJoin)(lookupApis).toPromise();
+            // Create the service updater instances.
+            const updaters = {};
+            for (const desired of serviceUpdates) {
+                const existing = (_a = lookups.services) === null || _a === void 0 ? void 0 : _a.find(svc => svc.Name === desired.Name);
+                if (!existing)
+                    throw new Error(`${Runner.ERROR_NO_SUCH_DUPLO_SERVICE}: ${desired.Name}`);
+                const pods = ((_b = lookups.pods) === null || _b === void 0 ? void 0 : _b.filter(pod => pod.Name === desired.Name)) || [];
+                updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
+            }
+            for (const desired of ecsUpdates) {
+                const existingService = (_c = lookups.ecsServices) === null || _c === void 0 ? void 0 : _c.find(svc => svc.Name === desired.Name);
+                if (!existingService)
+                    throw new Error(`${Runner.ERROR_NO_SUCH_ECS_SERVICE}: ${desired.Name}`);
+                const existingTaskDefArn = (_d = lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find(svc => svc.TaskDefinitionArn === existingService.TaskDefinition);
+                if (!existingTaskDefArn)
+                    throw new Error(`${Runner.ERROR_NO_SUCH_ECS_TASKDEF}: ${desired.Name}`);
+                updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
+            }
+            // Build the updates to execute in parallel.
+            const apiCalls = {};
+            for (const desired of serviceUpdates) {
+                apiCalls[desired.Name] = updaters[desired.Name].buildServiceUpdate();
+            }
+            // Perform the updates in parallel, failing on error.
+            return (0, rxjs_1.forkJoin)(apiCalls).toPromise();
+        });
+    }
+    runAction() {
+        return __awaiter(this, void 0, void 0, function* () {
             try {
                 // Connect to Duplo.
                 const duploHost = core.getInput('duplo_host');
@@ -625,11 +643,13 @@ function run() {
                 const ds = new datasource_1.DataSource(new httpclient_1.DuploHttpClient(duploHost, duploToken));
                 // Collect tenant information.
                 const tenantInput = core.getInput('tenant');
+                if (!tenantInput)
+                    throw new Error(Runner.ERROR_NO_TENANT_SPECIFIED);
                 const tenant = yield ds.getTenant(tenantInput).toPromise();
                 if (!tenant)
-                    throw new Error(`No such tenant: ${tenantInput}`);
+                    throw new Error(`${Runner.ERROR_NO_SUCH_TENANT}: ${tenantInput}`);
                 // Update all services.
-                const updateResults = yield updateServices(ds, tenant);
+                const updateResults = yield this.updateServices(ds, tenant);
                 // Check for failures.
                 const failures = [];
                 for (const key of Object.keys(updateResults)) {
@@ -638,40 +658,27 @@ function run() {
                     }
                 }
                 if (failures.length)
-                    throw new Error(`Failed to update service${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
-                resolve();
+                    throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
             }
             catch (error) {
                 if (error instanceof Error) {
                     core.setFailed(error.message);
-                    reject(error);
                 }
                 else {
                     core.setFailed(`${error}`);
-                    reject(new Error(`${error}`));
                 }
             }
-        }));
-    });
+        });
+    }
 }
-run();
-
-
-/***/ }),
-
-/***/ 6265:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-if (!globalThis.fetch) {
-    const fetch = __nccwpck_require__(467);
-    globalThis.fetch = fetch;
-    globalThis.FormData = fetch.FormData;
-    globalThis.Headers = fetch.Headers;
-    globalThis.Request = fetch.Request;
-    globalThis.Response = fetch.Response;
-}
+exports.Runner = Runner;
+Runner.ERROR_NOTHING_TO_DO = 'Input(s) services and/or ecs_services must be set: nothing to do';
+Runner.ERROR_NO_TENANT_SPECIFIED = 'No tenant specified';
+Runner.ERROR_NO_SUCH_TENANT = 'No such tenant';
+Runner.ERROR_NO_SUCH_DUPLO_SERVICE = 'No such duplo service';
+Runner.ERROR_NO_SUCH_ECS_SERVICE = 'No such ECS service';
+Runner.ERROR_NO_SUCH_ECS_TASKDEF = 'Cannot find ECS task definition ARN for';
+Runner.ERROR_FAILED_TO_UPDATE = 'Failed to update service';
 
 
 /***/ }),
@@ -18036,13 +18043,19 @@ module.exports = require("zlib");
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(3109);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+(() => {
+"use strict";
+var exports = __webpack_exports__;
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const runner_1 = __nccwpck_require__(8209);
+new runner_1.Runner().runAction();
+
+})();
+
+module.exports = __webpack_exports__;
 /******/ })()
 ;
 //# sourceMappingURL=index.js.map
