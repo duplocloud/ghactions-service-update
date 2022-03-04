@@ -1,14 +1,44 @@
 import * as core from '@actions/core'
-import {Observable, of} from 'rxjs'
-import {Pod, ReplicationController, ServicePatchRequest, UserTenant} from './duplocloud/model'
-import {catchError, map} from 'rxjs/operators'
+import {
+  AgentPlatform,
+  K8sEnvEntry,
+  Pod,
+  ReplicationController,
+  ReplicationControllerChangeRequest,
+  UserTenant
+} from './duplocloud/model'
 import {DataSource, extractErrorMessage} from './duplocloud/datasource'
+import {Observable, of} from 'rxjs'
+import {catchError, map} from 'rxjs/operators'
+
+interface DockerEnv {
+  [name: string]: string
+}
 
 interface ServiceContainerStatus {
   DesiredStatus: number
   CurrentStatus: number
   DockerId: string
   FirstSeen: number // when did we first see this container? [new Date().getTime()]
+}
+
+export class ServiceUpdateRequest {
+  constructor(properties?: Partial<ServiceUpdateRequest>) {
+    Object.assign(this, properties || {})
+  }
+
+  Name!: string
+  Image!: string
+  AgentPlatform?: AgentPlatform
+
+  // Completely replaces environment variables.
+  Env?: DockerEnv | K8sEnvEntry[]
+
+  // Merges on to of existing environment variables.
+  MergeEnv?: DockerEnv | K8sEnvEntry[]
+
+  // Deletes the named environment variables.
+  DeleteEnv?: string[]
 }
 
 export interface ServicePatchResult {
@@ -26,7 +56,7 @@ export class ServiceUpdater {
 
   constructor(
     readonly tenant: UserTenant,
-    readonly desired: ServicePatchRequest,
+    readonly desired: ServiceUpdateRequest,
     readonly existing: ReplicationController,
     readonly pods: Pod[],
     readonly ds: DataSource
@@ -38,10 +68,9 @@ export class ServiceUpdater {
   }
 
   buildServiceUpdate(): Observable<ServicePatchResult> {
+    // Collect data about the existing service and pods.
     const ImagePrev = this.existing.Template?.Containers[0].Image
     const Replicas = this.existing.Replicas
-
-    // Find all existing pods, and remember when we first saw them.
     const Containers: ServiceContainerStatus[] = this.pods
       .map(
         pod =>
@@ -56,13 +85,32 @@ export class ServiceUpdater {
       )
       .flat()
 
-    // Pull in the agent platform, if it is missing.
-    if (!this.desired.AgentPlatform && this.desired.AgentPlatform !== 0) {
-      this.desired.AgentPlatform = this.existing.Template?.AgentPlatform
+    // Build the change request.
+    const rq = new ReplicationControllerChangeRequest({
+      Name: this.desired.Name,
+      Image: this.desired.Image,
+      AgentPlatform: this.desired.AgentPlatform
+    })
+    if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
+      rq.AgentPlatform = this.existing.Template.AgentPlatform
+    }
+
+    // Add environment variables to the change request.
+    if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+      if (rq.AgentPlatform === AgentPlatform.EKS_LINUX) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
+
+        otherDockerConfig.Env = this.buildK8sEnv()
+
+        rq.OtherDockerConfig = JSON.stringify(otherDockerConfig)
+      } else {
+        rq.ExtraConfig = JSON.stringify(this.buildDockerEnv())
+      }
     }
 
     // Build the API call and prepare to output status about the API call
-    return this.ds.patchService(this.tenant.TenantId, this.desired).pipe(
+    return this.ds.patchService(this.tenant.TenantId, rq).pipe(
       map(rp => {
         core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`)
         return {ImagePrev, Replicas, Containers, UpdateSucceeded: rp ?? true}
@@ -72,5 +120,40 @@ export class ServiceUpdater {
         return of({ImagePrev, Replicas, Containers, UpdateSucceeded: false})
       })
     )
+  }
+
+  private buildK8sEnv(): K8sEnvEntry[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
+    let env: K8sEnvEntry[] = otherDockerConfig.Env ?? []
+
+    if (this.desired.Env) env = this.desired.Env as K8sEnvEntry[]
+
+    if (Array.isArray(this.desired.MergeEnv)) {
+      for (const mergeEntry of this.desired.MergeEnv) {
+        const replace = env.find(entry => entry.Name === mergeEntry.Name)
+        if (replace) Object.assign(replace, mergeEntry)
+        else env.push(mergeEntry)
+      }
+    }
+
+    if (this.desired.DeleteEnv && env?.length) env = env.filter(entry => !this.desired.DeleteEnv?.includes(entry.Name))
+
+    return env
+  }
+
+  private buildDockerEnv(): DockerEnv {
+    let env: DockerEnv = (this.existing.ExtraConfigAsJSON ?? {}) as DockerEnv
+
+    if (this.desired.Env) env = this.desired.Env as DockerEnv
+
+    if (this.desired.MergeEnv) {
+      env ??= {}
+      Object.assign(env, this.desired.MergeEnv)
+    }
+
+    if (this.desired.DeleteEnv) for (const key of this.desired.DeleteEnv) delete env[key]
+
+    return env
   }
 }

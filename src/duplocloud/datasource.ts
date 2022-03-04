@@ -4,7 +4,7 @@ import {
   EcsTaskDefinitionArn,
   Pod,
   ReplicationController,
-  ServicePatchRequest,
+  ReplicationControllerChangeRequest,
   UserTenant
 } from './model'
 import {DuploHttpClient} from './httpclient'
@@ -67,7 +67,7 @@ export class DataSource {
     )
   }
 
-  patchService(tenantId: string, request: ServicePatchRequest): Observable<null> {
+  patchService(tenantId: string, request: ReplicationControllerChangeRequest): Observable<null> {
     return this.api.post<null>(`/subscriptions/${tenantId}/ReplicationControllerChange`, request)
   }
 

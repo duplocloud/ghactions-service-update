@@ -165,7 +165,7 @@ exports.DuploHttpClient = DuploHttpClient;
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-shadow */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PortMapping = exports.LinuxParameters = exports.Environment = exports.ContainerDefinition = exports.EcsTaskDefinition = exports.LBConfiguration = exports.LbHealthCheckConfig = exports.LBType = exports.EcsServiceModel = exports.EcsTaskDefinitionArn = exports.CapacityProviderStrategy = exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.EcsServicePatchRequest = exports.ServicePatchRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
+exports.PortMapping = exports.LinuxParameters = exports.Environment = exports.ContainerDefinition = exports.EcsTaskDefinition = exports.LBConfiguration = exports.LbHealthCheckConfig = exports.LBType = exports.EcsServiceModel = exports.EcsTaskDefinitionArn = exports.CapacityProviderStrategy = exports.Pod = exports.PodInterface = exports.PodContainer = exports.PodTemplate = exports.ReplicationController = exports.EcsServicePatchRequest = exports.ReplicationControllerChangeRequest = exports.UserTenant = exports.CloudPlatform = exports.AgentPlatform = exports.CustomDataEx = exports.CustomData = void 0;
 // API object:  custom data
 class CustomData {
     constructor(properties) {
@@ -208,26 +208,25 @@ class UserTenant {
 }
 exports.UserTenant = UserTenant;
 // API object: A request to patch a service.
-class ServicePatchRequest {
-    constructor(Name, Image, AgentPlatform) {
-        this.Name = Name;
-        this.Image = Image;
-        this.AgentPlatform = AgentPlatform;
+class ReplicationControllerChangeRequest {
+    constructor(properties) {
+        Object.assign(this, properties || {});
     }
 }
-exports.ServicePatchRequest = ServicePatchRequest;
+exports.ReplicationControllerChangeRequest = ReplicationControllerChangeRequest;
 // A request to patch an ECS service.
 class EcsServicePatchRequest {
-    constructor(Name, Image) {
-        this.Name = Name;
-        this.Image = Image;
+    constructor(properties) {
+        Object.assign(this, properties || {});
     }
 }
 exports.EcsServicePatchRequest = EcsServicePatchRequest;
 class ReplicationController {
     /** Convenience constructor for deserialization or cloning.  */
     constructor(properties) {
+        var _a;
         Object.assign(this, properties || {});
+        (_a = this.Template) !== null && _a !== void 0 ? _a : (this.Template = new PodTemplate());
     }
     //Tags?: any[] // FIXME: Use a real type here
     get os() {
@@ -706,11 +705,18 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ServiceUpdater = void 0;
+exports.ServiceUpdater = exports.ServiceUpdateRequest = void 0;
 const core = __importStar(__nccwpck_require__(2186));
+const model_1 = __nccwpck_require__(5159);
+const datasource_1 = __nccwpck_require__(8835);
 const rxjs_1 = __nccwpck_require__(5805);
 const operators_1 = __nccwpck_require__(7801);
-const datasource_1 = __nccwpck_require__(8835);
+class ServiceUpdateRequest {
+    constructor(properties) {
+        Object.assign(this, properties || {});
+    }
+}
+exports.ServiceUpdateRequest = ServiceUpdateRequest;
 class ServiceUpdater {
     constructor(tenant, desired, existing, pods, ds) {
         var _a, _b;
@@ -726,10 +732,10 @@ class ServiceUpdater {
         this.name = desired.Name;
     }
     buildServiceUpdate() {
-        var _a, _b;
+        var _a;
+        // Collect data about the existing service and pods.
         const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
         const Replicas = this.existing.Replicas;
-        // Find all existing pods, and remember when we first saw them.
         const Containers = this.pods
             .map(pod => {
             var _a, _b;
@@ -743,18 +749,69 @@ class ServiceUpdater {
             })) !== null && _b !== void 0 ? _b : [];
         })
             .flat();
-        // Pull in the agent platform, if it is missing.
-        if (!this.desired.AgentPlatform && this.desired.AgentPlatform !== 0) {
-            this.desired.AgentPlatform = (_b = this.existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
+        // Build the change request.
+        const rq = new model_1.ReplicationControllerChangeRequest({
+            Name: this.desired.Name,
+            Image: this.desired.Image,
+            AgentPlatform: this.desired.AgentPlatform
+        });
+        if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
+            rq.AgentPlatform = this.existing.Template.AgentPlatform;
+        }
+        // Add environment variables to the change request.
+        if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+            if (rq.AgentPlatform === model_1.AgentPlatform.EKS_LINUX) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const otherDockerConfig = this.existing.OtherDockerConfig || {};
+                otherDockerConfig.Env = this.buildK8sEnv();
+                rq.OtherDockerConfig = JSON.stringify(otherDockerConfig);
+            }
+            else {
+                rq.ExtraConfig = JSON.stringify(this.buildDockerEnv());
+            }
         }
         // Build the API call and prepare to output status about the API call
-        return this.ds.patchService(this.tenant.TenantId, this.desired).pipe((0, operators_1.map)(rp => {
+        return this.ds.patchService(this.tenant.TenantId, rq).pipe((0, operators_1.map)(rp => {
             core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`);
             return { ImagePrev, Replicas, Containers, UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
         }), (0, operators_1.catchError)(err => {
             core.error(`${ServiceUpdater.FAILURE}: ${this.desired.Name}: ${(0, datasource_1.extractErrorMessage)(err)}`);
             return (0, rxjs_1.of)({ ImagePrev, Replicas, Containers, UpdateSucceeded: false });
         }));
+    }
+    buildK8sEnv() {
+        var _a;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherDockerConfig = this.existing.OtherDockerConfig || {};
+        let env = (_a = otherDockerConfig.Env) !== null && _a !== void 0 ? _a : [];
+        if (this.desired.Env)
+            env = this.desired.Env;
+        if (Array.isArray(this.desired.MergeEnv)) {
+            for (const mergeEntry of this.desired.MergeEnv) {
+                const replace = env.find(entry => entry.Name === mergeEntry.Name);
+                if (replace)
+                    Object.assign(replace, mergeEntry);
+                else
+                    env.push(mergeEntry);
+            }
+        }
+        if (this.desired.DeleteEnv && (env === null || env === void 0 ? void 0 : env.length))
+            env = env.filter(entry => { var _a; return !((_a = this.desired.DeleteEnv) === null || _a === void 0 ? void 0 : _a.includes(entry.Name)); });
+        return env;
+    }
+    buildDockerEnv() {
+        var _a;
+        let env = ((_a = this.existing.ExtraConfigAsJSON) !== null && _a !== void 0 ? _a : {});
+        if (this.desired.Env)
+            env = this.desired.Env;
+        if (this.desired.MergeEnv) {
+            env !== null && env !== void 0 ? env : (env = {});
+            Object.assign(env, this.desired.MergeEnv);
+        }
+        if (this.desired.DeleteEnv)
+            for (const key of this.desired.DeleteEnv)
+                delete env[key];
+        return env;
     }
 }
 exports.ServiceUpdater = ServiceUpdater;

@@ -1,19 +1,11 @@
 import {expect, jest} from '@jest/globals'
 
 import {Runner, ServicePatchResults} from '../src/runner'
-import {ServicePatchResult, ServiceUpdater} from '../src/service-updater'
+import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of, throwError} from 'rxjs'
-import {
-  AgentPlatform,
-  Pod,
-  PodContainer,
-  PodTemplate,
-  ReplicationController,
-  ServicePatchRequest,
-  UserTenant
-} from '../src/duplocloud/model'
+import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 
 jest.mock('@actions/core')
@@ -96,7 +88,7 @@ describe('Runner unit', () => {
 
     describe('result', () => {
       // Different results for each test
-      let services: ServicePatchRequest[] = []
+      let services: ServiceUpdateRequest[] = []
       let successes: {[name: string]: boolean} = {}
 
       beforeAll(() => {
@@ -181,7 +173,7 @@ describe('Runner unit', () => {
 
     // Allow changing parameters for each test
     let tenant = tenantFaker()
-    let services: ServicePatchRequest[] = []
+    let services: ServiceUpdateRequest[] = []
     let rpcs: ReplicationController[] = []
     let pods: Pod[] = []
 
@@ -211,7 +203,7 @@ describe('Runner unit', () => {
       inputs['services'] = () => (services ? JSON.stringify(services) : '')
 
       // Default to mocking success.
-      mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => of(null))
+      mockPatchService.mockImplementation((tenantId: string, request: ServiceUpdateRequest) => of(null))
     })
 
     afterEach(() => {
@@ -229,7 +221,7 @@ describe('Runner unit', () => {
 
       it('propagates errors', async () => {
         // Mock failure
-        mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => throwError('boom!'))
+        mockPatchService.mockImplementation((tenantId: string, request: ServiceUpdateRequest) => throwError('boom!'))
 
         const result = await runner.updateServices(ds, tenant)
 
@@ -240,30 +232,6 @@ describe('Runner unit', () => {
         const result = await runner.updateServices(ds, tenant)
 
         expect(core.info).toHaveBeenCalledWith(`${ServiceUpdater.SUCCESS}: foo`)
-      })
-
-      it('fills in a missing AgentPlatform', async () => {
-        const expected = {...services[0], AgentPlatform: 7}
-
-        const result = await runner.updateServices(ds, tenant)
-
-        expect(core.error).not.toHaveBeenCalled()
-
-        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
-      })
-
-      it('uses an explicit AgentPlatform', async () => {
-        services[0].AgentPlatform = 0
-
-        const result = await runner.updateServices(ds, tenant)
-
-        expect(core.error).not.toHaveBeenCalled()
-
-        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, services[0])
       })
 
       it('updates multiple services', async () => {

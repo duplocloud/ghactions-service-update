@@ -1,8 +1,8 @@
 import {expect, jest} from '@jest/globals'
-import {DataSource} from '../../src/duplocloud/datasource'
-import {DuploHttpClient} from '../../src/duplocloud/httpclient'
-import {EcsTaskDefinitionArn} from '../../src/duplocloud/model'
-import {EcsServiceUpdater} from '../../src/ecs-service-updater'
+import {DataSource} from '../src/duplocloud/datasource'
+import {DuploHttpClient} from '../src/duplocloud/httpclient'
+import {EcsTaskDefinitionArn} from '../src/duplocloud/model'
+import {EcsServiceUpdater} from '../src/ecs-service-updater'
 
 describe('EcsServiceUpdater integration', () => {
   // Integration tests.

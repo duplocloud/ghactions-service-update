@@ -5,12 +5,11 @@ import {
   EcsTaskDefinitionArn,
   Pod,
   ReplicationController,
-  ServicePatchRequest,
   UserTenant
 } from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
 import {Observable, forkJoin} from 'rxjs'
-import {ServicePatchResult, ServiceUpdater} from './service-updater'
+import {ServicePatchResult, ServiceUpdateRequest, ServiceUpdater} from './service-updater'
 import {DataSource} from './duplocloud/datasource'
 import {DuploHttpClient} from './duplocloud/httpclient'
 
@@ -49,7 +48,7 @@ export class Runner {
    */
   async updateServices(ds: DataSource, tenant: UserTenant): Promise<ServicePatchResults> {
     // Parse requested updates.
-    const serviceUpdates: ServicePatchRequest[] = JSON.parse(core.getInput('services') || '[]')
+    const serviceUpdates: ServiceUpdateRequest[] = JSON.parse(core.getInput('services') || '[]')
     const haveServiceUpdates = !!serviceUpdates?.length
     const ecsUpdates: EcsServicePatchRequest[] = JSON.parse(core.getInput('ecs_services') || '[]')
     const haveEcsUpdates = !!ecsUpdates?.length

@@ -69,25 +69,45 @@ export class UserTenant {
   InfraOwner?: string
 }
 
+export interface K8sEnvEntry {
+  Name: string
+  Value?: string
+  [prop: string]: any
+}
+
 // API object: A request to patch a service.
-export class ServicePatchRequest {
-  constructor(public Name: string, public Image: string, public AgentPlatform?: AgentPlatform) {}
+export class ReplicationControllerChangeRequest {
+  constructor(properties?: Partial<ReplicationControllerChangeRequest>) {
+    Object.assign(this, properties || {})
+  }
+
+  Name!: string
+  Image!: string
+  AgentPlatform!: AgentPlatform
+  ExtraConfig?: string
+  OtherDockerConfig?: string
 }
 
 // A request to patch an ECS service.
 export class EcsServicePatchRequest {
-  constructor(public Name: string, public Image: string) {}
+  constructor(properties?: Partial<EcsServicePatchRequest>) {
+    Object.assign(this, properties || {})
+  }
+
+  Name!: string
+  Image!: string
 }
 
 export class ReplicationController {
   /** Convenience constructor for deserialization or cloning.  */
   constructor(properties?: Partial<ReplicationController>) {
     Object.assign(this, properties || {})
+    this.Template ??= new PodTemplate()
   }
 
   Name!: string
   Index?: number
-  Template?: PodTemplate
+  Template: PodTemplate
   Replicas!: number
   ReplicasPrev?: number
   IsInfraDeployment?: boolean
