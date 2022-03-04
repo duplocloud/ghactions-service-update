@@ -64,14 +64,14 @@ describe('ServiceUpdater unit', () => {
       Image: desired.Image,
 
       // AgentPlatform can be explicitly specified, or implicity read from the backend
-      AgentPlatform: (desired.AgentPlatform || desired.AgentPlatform===0) ? desired.AgentPlatform : existing.Template?.AgentPlatform
+      AgentPlatform: (desired.AgentPlatform || desired.AgentPlatform===0) ? desired.AgentPlatform : existing.Template.AgentPlatform
     })
     let expected = defaultExpected()
     beforeEach(() => expected = defaultExpected())
 
     describe('AgentPlatform', () => {
       it('can be implicitly read from the ReplicationController', async () => {
-        expected.AgentPlatform = existing.Template?.AgentPlatform as AgentPlatform
+        expected.AgentPlatform = existing.Template.AgentPlatform
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -81,7 +81,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       it('can be explicitly passed', async () => {
-        if (existing.Template) existing.Template.AgentPlatform = 0
+        existing.Template.AgentPlatform = 0
         expected.AgentPlatform = desired.AgentPlatform = 7
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
@@ -103,14 +103,24 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from Env', () => {
-        beforeEach(() => desired.Env = [
-          {Name: 'foo', Value: 'bar'}
-        ])
+        beforeEach(() => desired.Env = ({foo: 'bar'}) )
 
         it('is not written when AgentPlatform is 7', async () => {
           desired.AgentPlatform = 7
           expected = defaultExpected()
           delete expected.ExtraConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('overwrites ExtraConfig', async () => {
+          existing.Template.ExtraConfig = JSON.stringify({bar: 'foo'})
+          expected.ExtraConfig = JSON.stringify({foo: 'bar'})
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -121,14 +131,24 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from MergeEnv', () => {
-        beforeEach(() => desired.MergeEnv = [
-          {Name: 'foo', Value: 'bar'}
-        ])
+        beforeEach(() => desired.MergeEnv = ({foo: 'bar'}))
 
         it('is not written when AgentPlatform is 7', async () => {
           desired.AgentPlatform = 7
           expected = defaultExpected()
           delete expected.ExtraConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('adds to ExtraConfig', async () => {
+          existing.Template.ExtraConfig = JSON.stringify({bar: 'foo'})
+          expected.ExtraConfig = JSON.stringify({bar: 'foo', foo: 'bar'})
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -147,6 +167,29 @@ describe('ServiceUpdater unit', () => {
           delete expected.ExtraConfig
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('removes from ExtraConfig', async () => {
+          existing.Template.ExtraConfig = JSON.stringify({bar: 'foo', foo: 'bar'})
+          expected.ExtraConfig = JSON.stringify({bar: 'foo'})
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('can clear ExtraConfig', async () => {
+          existing.Template.ExtraConfig = JSON.stringify({foo: 'bar'})
+          expected.ExtraConfig = '{}'
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -156,6 +199,11 @@ describe('ServiceUpdater unit', () => {
     })
 
     describe('OtherDockerConfig', () => {
+      beforeEach(() => {
+        desired.AgentPlatform = 7
+        expected = defaultExpected()
+      })
+
       it('is not written when not specified', async () => {
         delete expected.OtherDockerConfig
 
@@ -177,6 +225,35 @@ describe('ServiceUpdater unit', () => {
           delete expected.OtherDockerConfig
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('only writes to OtherDockerConfig.Env', async () => {
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'bar', Value: 'foo'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: desired.Env
+          })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('can create a new OtherDockerConfig', async () => {
+          existing.Template.OtherDockerConfig = ''
+          expected.OtherDockerConfig = JSON.stringify({ Env: desired.Env })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -195,6 +272,7 @@ describe('ServiceUpdater unit', () => {
           delete expected.OtherDockerConfig
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -211,6 +289,7 @@ describe('ServiceUpdater unit', () => {
           delete expected.OtherDockerConfig
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()

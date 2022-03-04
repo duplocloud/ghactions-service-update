@@ -11,6 +11,10 @@ import {DataSource, extractErrorMessage} from './duplocloud/datasource'
 import {Observable, of} from 'rxjs'
 import {catchError, map} from 'rxjs/operators'
 
+interface DockerEnv {
+  [name: string]: string
+}
+
 interface ServiceContainerStatus {
   DesiredStatus: number
   CurrentStatus: number
@@ -28,10 +32,10 @@ export class ServiceUpdateRequest {
   AgentPlatform?: AgentPlatform
 
   // Completely replaces environment variables.
-  Env?: ({[name: string]: string} | K8sEnvEntry)[]
+  Env?: DockerEnv | K8sEnvEntry[]
 
   // Merges on to of existing environment variables.
-  MergeEnv?: ({[name: string]: string} | K8sEnvEntry)[]
+  MergeEnv?: DockerEnv | K8sEnvEntry[]
 
   // Deletes the named environment variables.
   DeleteEnv?: string[]
@@ -88,7 +92,21 @@ export class ServiceUpdater {
       AgentPlatform: this.desired.AgentPlatform
     })
     if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
-      rq.AgentPlatform = this.existing.Template?.AgentPlatform as AgentPlatform
+      rq.AgentPlatform = this.existing.Template.AgentPlatform
+    }
+
+    // Add environment variables to the change request.
+    if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+      if (rq.AgentPlatform === AgentPlatform.EKS_LINUX) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
+
+        otherDockerConfig.Env = this.buildK8sEnv()
+
+        rq.OtherDockerConfig = JSON.stringify(otherDockerConfig)
+      } else {
+        rq.ExtraConfig = JSON.stringify(this.buildDockerEnv())
+      }
     }
 
     // Build the API call and prepare to output status about the API call
@@ -102,5 +120,28 @@ export class ServiceUpdater {
         return of({ImagePrev, Replicas, Containers, UpdateSucceeded: false})
       })
     )
+  }
+
+  private buildK8sEnv(): K8sEnvEntry[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
+    let env: K8sEnvEntry[] = otherDockerConfig.Env ?? []
+
+    if (this.desired.Env) env = this.desired.Env as K8sEnvEntry[]
+
+    return env
+  }
+
+  private buildDockerEnv(): DockerEnv {
+    let env: DockerEnv = (this.existing.ExtraConfigAsJSON ?? {}) as DockerEnv
+
+    if (this.desired.Env) env = this.desired.Env as DockerEnv
+    if (this.desired.MergeEnv) {
+      env ??= {}
+      Object.assign(env, this.desired.MergeEnv)
+    }
+    if (this.desired.DeleteEnv) for (const key of this.desired.DeleteEnv) delete env[key]
+
+    return env
   }
 }

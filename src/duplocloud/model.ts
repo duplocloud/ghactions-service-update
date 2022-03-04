@@ -102,11 +102,12 @@ export class ReplicationController {
   /** Convenience constructor for deserialization or cloning.  */
   constructor(properties?: Partial<ReplicationController>) {
     Object.assign(this, properties || {})
+    this.Template ??= new PodTemplate()
   }
 
   Name!: string
   Index?: number
-  Template?: PodTemplate
+  Template: PodTemplate
   Replicas!: number
   ReplicasPrev?: number
   IsInfraDeployment?: boolean
