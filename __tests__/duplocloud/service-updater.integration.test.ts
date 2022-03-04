@@ -21,7 +21,6 @@ describe('ServiceUpdater integration', () => {
         expect(tenant).not.toBeNull()
         expect(tenant?.TenantId).not.toBeNull()
         if (tenant?.TenantId) {
-
           // Get other information
           const existing = await ds.getReplicationController(tenant.TenantId, 'website').toPromise()
           expect(existing).not.toBeNull()
