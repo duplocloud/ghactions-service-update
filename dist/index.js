@@ -224,7 +224,9 @@ exports.EcsServicePatchRequest = EcsServicePatchRequest;
 class ReplicationController {
     /** Convenience constructor for deserialization or cloning.  */
     constructor(properties) {
+        var _a;
         Object.assign(this, properties || {});
+        (_a = this.Template) !== null && _a !== void 0 ? _a : (this.Template = new PodTemplate());
     }
     //Tags?: any[] // FIXME: Use a real type here
     get os() {
@@ -730,7 +732,7 @@ class ServiceUpdater {
         this.name = desired.Name;
     }
     buildServiceUpdate() {
-        var _a, _b;
+        var _a;
         // Collect data about the existing service and pods.
         const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
         const Replicas = this.existing.Replicas;
@@ -754,7 +756,19 @@ class ServiceUpdater {
             AgentPlatform: this.desired.AgentPlatform
         });
         if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
-            rq.AgentPlatform = (_b = this.existing.Template) === null || _b === void 0 ? void 0 : _b.AgentPlatform;
+            rq.AgentPlatform = this.existing.Template.AgentPlatform;
+        }
+        // Add environment variables to the change request.
+        if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+            if (rq.AgentPlatform === model_1.AgentPlatform.EKS_LINUX) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const otherDockerConfig = this.existing.OtherDockerConfig || {};
+                otherDockerConfig.Env = this.buildK8sEnv();
+                rq.OtherDockerConfig = JSON.stringify(otherDockerConfig);
+            }
+            else {
+                rq.ExtraConfig = JSON.stringify(this.buildDockerEnv());
+            }
         }
         // Build the API call and prepare to output status about the API call
         return this.ds.patchService(this.tenant.TenantId, rq).pipe((0, operators_1.map)(rp => {
@@ -764,6 +778,40 @@ class ServiceUpdater {
             core.error(`${ServiceUpdater.FAILURE}: ${this.desired.Name}: ${(0, datasource_1.extractErrorMessage)(err)}`);
             return (0, rxjs_1.of)({ ImagePrev, Replicas, Containers, UpdateSucceeded: false });
         }));
+    }
+    buildK8sEnv() {
+        var _a;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherDockerConfig = this.existing.OtherDockerConfig || {};
+        let env = (_a = otherDockerConfig.Env) !== null && _a !== void 0 ? _a : [];
+        if (this.desired.Env)
+            env = this.desired.Env;
+        if (Array.isArray(this.desired.MergeEnv)) {
+            for (const mergeEntry of this.desired.MergeEnv) {
+                const replace = env.find(entry => entry.Name === mergeEntry.Name);
+                if (replace)
+                    Object.assign(replace, mergeEntry);
+                else
+                    env.push(mergeEntry);
+            }
+        }
+        if (this.desired.DeleteEnv && (env === null || env === void 0 ? void 0 : env.length))
+            env = env.filter(entry => { var _a; return !((_a = this.desired.DeleteEnv) === null || _a === void 0 ? void 0 : _a.includes(entry.Name)); });
+        return env;
+    }
+    buildDockerEnv() {
+        var _a;
+        let env = ((_a = this.existing.ExtraConfigAsJSON) !== null && _a !== void 0 ? _a : {});
+        if (this.desired.Env)
+            env = this.desired.Env;
+        if (this.desired.MergeEnv) {
+            env !== null && env !== void 0 ? env : (env = {});
+            Object.assign(env, this.desired.MergeEnv);
+        }
+        if (this.desired.DeleteEnv)
+            for (const key of this.desired.DeleteEnv)
+                delete env[key];
+        return env;
     }
 }
 exports.ServiceUpdater = ServiceUpdater;

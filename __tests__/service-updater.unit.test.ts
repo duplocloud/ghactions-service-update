@@ -3,10 +3,18 @@ import {expect, jest} from '@jest/globals'
 import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of} from 'rxjs'
-import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, ReplicationControllerChangeRequest, UserTenant} from '../src/duplocloud/model'
+import {
+  AgentPlatform,
+  Pod,
+  PodContainer,
+  PodTemplate,
+  ReplicationController,
+  ReplicationControllerChangeRequest,
+  UserTenant
+} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import * as core from '@actions/core'
-import { connectableObservableDescriptor } from 'rxjs/internal/observable/ConnectableObservable'
+import {connectableObservableDescriptor} from 'rxjs/internal/observable/ConnectableObservable'
 
 jest.mock('@actions/core')
 jest.mock('../src/duplocloud/httpclient')
@@ -58,17 +66,18 @@ describe('ServiceUpdater unit', () => {
   afterEach(() => Object.assign(process.env, origEnv))
 
   describe('buildServiceUpdate()', () => {
-
     // Initialize the default expected value prior to each test.
-    const defaultExpected = () => new ReplicationControllerChangeRequest({
-      Name: desired.Name,
-      Image: desired.Image,
+    const defaultExpected = () =>
+      new ReplicationControllerChangeRequest({
+        Name: desired.Name,
+        Image: desired.Image,
 
-      // AgentPlatform can be explicitly specified, or implicity read from the backend
-      AgentPlatform: (desired.AgentPlatform || desired.AgentPlatform===0) ? desired.AgentPlatform : existing.Template.AgentPlatform
-    })
+        // AgentPlatform can be explicitly specified, or implicity read from the backend
+        AgentPlatform:
+          desired.AgentPlatform || desired.AgentPlatform === 0 ? desired.AgentPlatform : existing.Template.AgentPlatform
+      })
     let expected = defaultExpected()
-    beforeEach(() => expected = defaultExpected())
+    beforeEach(() => (expected = defaultExpected()))
 
     describe('AgentPlatform', () => {
       it('can be implicitly read from the ReplicationController', async () => {
@@ -104,7 +113,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from Env', () => {
-        beforeEach(() => desired.Env = ({foo: 'bar'}) )
+        beforeEach(() => (desired.Env = {foo: 'bar'}))
 
         it('is not written when AgentPlatform is 7', async () => {
           desired.AgentPlatform = 7
@@ -132,7 +141,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from MergeEnv', () => {
-        beforeEach(() => desired.MergeEnv = ({foo: 'bar'}))
+        beforeEach(() => (desired.MergeEnv = {foo: 'bar'}))
 
         it('is not written when AgentPlatform is 7', async () => {
           desired.AgentPlatform = 7
@@ -160,7 +169,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from DeleteEnv', () => {
-        beforeEach(() => desired.DeleteEnv = ['foo'])
+        beforeEach(() => (desired.DeleteEnv = ['foo']))
 
         it('is not written when AgentPlatform is 7', async () => {
           desired.AgentPlatform = 7
@@ -216,9 +225,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from Env', () => {
-        beforeEach(() => desired.Env = [
-          {Name: 'foo', Value: 'bar'}
-        ])
+        beforeEach(() => (desired.Env = [{Name: 'foo', Value: 'bar'}]))
 
         it('is not written when AgentPlatform is NOT 7', async () => {
           desired.AgentPlatform = 0
@@ -252,7 +259,7 @@ describe('ServiceUpdater unit', () => {
 
         it('can create a new OtherDockerConfig', async () => {
           existing.Template.OtherDockerConfig = ''
-          expected.OtherDockerConfig = JSON.stringify({ Env: desired.Env })
+          expected.OtherDockerConfig = JSON.stringify({Env: desired.Env})
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -263,9 +270,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from MergeEnv', () => {
-        beforeEach(() => desired.MergeEnv = [
-          {Name: 'foo', Value: 'bar'}
-        ])
+        beforeEach(() => (desired.MergeEnv = [{Name: 'foo', Value: 'bar'}]))
 
         it('is not written when AgentPlatform is NOT 7', async () => {
           desired.AgentPlatform = 0
@@ -287,7 +292,10 @@ describe('ServiceUpdater unit', () => {
           })
           expected.OtherDockerConfig = JSON.stringify({
             PodLabels: {foo: 'bar'},
-            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+            Env: [
+              {Name: 'bar', Value: 'foo'},
+              {Name: 'foo', Value: 'bar'}
+            ]
           })
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
@@ -301,11 +309,19 @@ describe('ServiceUpdater unit', () => {
           desired.MergeEnv = [{Name: 'two', Value: 'TWO'}]
           existing.Template.OtherDockerConfig = JSON.stringify({
             PodLabels: {foo: 'bar'},
-            Env: [{Name: 'one', Value: '1'},{Name: 'two', Value: '2'},{Name: 'three', Value: '3'}]
+            Env: [
+              {Name: 'one', Value: '1'},
+              {Name: 'two', Value: '2'},
+              {Name: 'three', Value: '3'}
+            ]
           })
           expected.OtherDockerConfig = JSON.stringify({
             PodLabels: {foo: 'bar'},
-            Env: [{Name: 'one', Value: '1'},{Name: 'two', Value: 'TWO'},{Name: 'three', Value: '3'}]
+            Env: [
+              {Name: 'one', Value: '1'},
+              {Name: 'two', Value: 'TWO'},
+              {Name: 'three', Value: '3'}
+            ]
           })
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
@@ -317,7 +333,7 @@ describe('ServiceUpdater unit', () => {
 
         it('can create a new OtherDockerConfig', async () => {
           existing.Template.OtherDockerConfig = ''
-          expected.OtherDockerConfig = JSON.stringify({ Env: desired.MergeEnv })
+          expected.OtherDockerConfig = JSON.stringify({Env: desired.MergeEnv})
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -328,7 +344,7 @@ describe('ServiceUpdater unit', () => {
       })
 
       describe('from DeleteEnv', () => {
-        beforeEach(() => desired.DeleteEnv = ['foo'])
+        beforeEach(() => (desired.DeleteEnv = ['foo']))
 
         it('is not written when AgentPlatform is NOT 7', async () => {
           desired.AgentPlatform = 0
@@ -346,7 +362,10 @@ describe('ServiceUpdater unit', () => {
         it('only writes to OtherDockerConfig.Env', async () => {
           existing.Template.OtherDockerConfig = JSON.stringify({
             PodLabels: {foo: 'bar'},
-            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+            Env: [
+              {Name: 'bar', Value: 'foo'},
+              {Name: 'foo', Value: 'bar'}
+            ]
           })
           expected.OtherDockerConfig = JSON.stringify({
             PodLabels: {foo: 'bar'},
@@ -362,7 +381,10 @@ describe('ServiceUpdater unit', () => {
 
         it('removes from OtherDockerConfig.Env', async () => {
           existing.Template.OtherDockerConfig = JSON.stringify({
-            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+            Env: [
+              {Name: 'bar', Value: 'foo'},
+              {Name: 'foo', Value: 'bar'}
+            ]
           })
           expected.OtherDockerConfig = JSON.stringify({
             Env: [{Name: 'bar', Value: 'foo'}]
@@ -379,7 +401,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.OtherDockerConfig = JSON.stringify({
             Env: [{Name: 'foo', Value: 'bar'}]
           })
-          expected.OtherDockerConfig = JSON.stringify({ Env: [] })
+          expected.OtherDockerConfig = JSON.stringify({Env: []})
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
