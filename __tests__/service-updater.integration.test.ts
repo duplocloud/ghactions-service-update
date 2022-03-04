@@ -1,7 +1,7 @@
 import {expect, jest} from '@jest/globals'
-import {DataSource} from '../../src/duplocloud/datasource'
-import {DuploHttpClient} from '../../src/duplocloud/httpclient'
-import {ServiceUpdater} from '../../src/service-updater'
+import {DataSource} from '../src/duplocloud/datasource'
+import {DuploHttpClient} from '../src/duplocloud/httpclient'
+import {ServiceUpdater} from '../src/service-updater'
 
 describe('ServiceUpdater integration', () => {
   // Integration tests.
