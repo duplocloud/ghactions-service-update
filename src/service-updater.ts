@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import {Observable, of} from 'rxjs'
 import {Pod, ReplicationController, ServicePatchRequest, UserTenant} from './duplocloud/model'
 import {catchError, map} from 'rxjs/operators'
-import {DataSource} from './duplocloud/datasource'
+import {DataSource, extractErrorMessage} from './duplocloud/datasource'
 
 interface ServiceContainerStatus {
   DesiredStatus: number
@@ -19,6 +19,9 @@ export interface ServicePatchResult {
 }
 
 export class ServiceUpdater {
+  static readonly SUCCESS = 'Updated Duplo service'
+  static readonly FAILURE = 'Failed to update Duplo service'
+
   readonly name: string
 
   constructor(
@@ -61,11 +64,11 @@ export class ServiceUpdater {
     // Build the API call and prepare to output status about the API call
     return this.ds.patchService(this.tenant.TenantId, this.desired).pipe(
       map(rp => {
-        core.info(`Updated duplo service: ${this.desired.Name}`)
+        core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`)
         return {ImagePrev, Replicas, Containers, UpdateSucceeded: rp ?? true}
       }),
       catchError(err => {
-        core.error(`Failed to update Duplo service(s): ${JSON.stringify(err)}`)
+        core.error(`${ServiceUpdater.FAILURE}: ${this.desired.Name}: ${extractErrorMessage(err)}`)
         return of({ImagePrev, Replicas, Containers, UpdateSucceeded: false})
       })
     )
