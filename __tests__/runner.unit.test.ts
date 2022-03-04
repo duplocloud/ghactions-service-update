@@ -1,21 +1,26 @@
 import {expect, jest} from '@jest/globals'
 
 import {Runner, ServicePatchResults} from '../src/runner'
-import {ServicePatchResult} from '../src/service-updater'
+import {ServicePatchResult, ServiceUpdater} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
-import {of} from 'rxjs'
-import {ServicePatchRequest, UserTenant} from '../src/duplocloud/model'
+import {of, throwError} from 'rxjs'
+import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, ServicePatchRequest, UserTenant} from '../src/duplocloud/model'
+import { DuploHttpClient } from '../src/duplocloud/httpclient'
 
 jest.mock('@actions/core')
 
 describe('Runner unit', () => {
   const origEnv = {duplo_host: process.env.duplo_host, duplo_token: process.env.duplo_token}
+  const tenantFaker = () => new UserTenant({TenantId: 'FAKE_TENANT_ID', AccountName: 'fake'})
 
   let runner = new Runner()
 
   // Mock different inputs for each test.
   let inputs: {[name: string]: string | (() => string)} = {}
+
+  // Spy on the updateServices method of the Runner
+  const mockUpdateServices = jest.spyOn(Runner.prototype, 'updateServices')
 
   beforeEach(() => {
     process.env.duplo_host = 'FAKE_DUPLO_HOST'
@@ -24,7 +29,7 @@ describe('Runner unit', () => {
 
     // Mock tenant being returneed
     jest.spyOn(DataSource.prototype, 'getTenantsForUser').mockImplementation(() => {
-      return of([new UserTenant({TenantId: 'FAKE_TENANT_ID', AccountName: 'fake'})])
+      return of([tenantFaker()])
     })
 
     // Mock inputs being set
@@ -36,7 +41,7 @@ describe('Runner unit', () => {
 
   afterEach(() => {
     Object.assign(process.env, origEnv)
-    inputs = {}
+    inputs = {services: '[]', ecs_services: '[]'}
   })
 
   describe('runAction()', () => {
@@ -53,6 +58,13 @@ describe('Runner unit', () => {
 
         await runner.runAction()
         expect(core.setFailed).toHaveBeenCalled()
+      })
+
+      it('fails if there is nothing to do', async () => {
+        inputs['tenant'] = 'fake'
+
+        await runner.runAction()
+        expect(core.setFailed).toHaveBeenCalledWith(Runner.ERROR_NOTHING_TO_DO)
       })
 
       describe('tenant access', () => {
@@ -79,15 +91,9 @@ describe('Runner unit', () => {
       let services: ServicePatchRequest[] = []
       let successes: {[name: string]: boolean} = {}
 
-      beforeEach(() => {
-        inputs['tenant'] = 'fake'
-        inputs['services'] = () => (services ? JSON.stringify(services) : '')
-
-        services = []
-        successes = {}
-
+      beforeAll(() => {
         // Mock failed updates being returned
-        jest.spyOn(Runner.prototype, 'updateServices').mockImplementation((_ds: DataSource, _tenant: UserTenant) => {
+        mockUpdateServices.mockImplementation((_ds: DataSource, _tenant: UserTenant) => {
           const res: ServicePatchResults = {}
           for (const svc of services) {
             res[svc.Name] = {
@@ -99,6 +105,18 @@ describe('Runner unit', () => {
           }
           return of(res).toPromise()
         })
+      })
+
+      beforeEach(() => {
+        inputs['tenant'] = 'fake'
+        inputs['services'] = () => (services ? JSON.stringify(services) : '')
+
+        services = []
+        successes = {}
+      })
+
+      afterAll(() => {
+        mockUpdateServices.mockRestore()
       })
 
       it('fails if one service failed', async () => {
@@ -146,6 +164,112 @@ describe('Runner unit', () => {
 
         expect(core.getInput).toHaveBeenCalledWith('tenant')
         expect(core.setFailed).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('updateServices()', () => {
+    const ds = new DataSource(new DuploHttpClient())
+
+    // Allow changing parameters for each test
+    let tenant = tenantFaker()
+    let services: ServicePatchRequest[] = []
+    let rpcs: ReplicationController[] = []
+    let pods: Pod[] = []
+
+    // Function that returns a fake ReplicationController.
+    const rpcFaker = (Name: string, AgentPlatform: AgentPlatform, Image: string) => new ReplicationController({
+      Name,
+      Template: new PodTemplate({
+        AgentPlatform,
+        Containers: [ new PodContainer({
+          Image
+        }) ]
+      })
+    })
+
+    // Mock Duplo API calls.
+    const mockGetRpcs = jest.spyOn(DataSource.prototype, 'getReplicationControllers').mockImplementation((tenantId: string) => of(rpcs))
+    const mockGetPods = jest.spyOn(DataSource.prototype, 'getPods').mockImplementation((tenantId: string) => of(pods))
+    const mockPatchService = jest.spyOn(DataSource.prototype, 'patchService')
+
+    beforeEach(() => {
+      inputs['tenant'] = 'fake'
+      inputs['services'] = () => (services ? JSON.stringify(services) : '')
+
+      // Default to mocking success.
+      mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => of(null))
+    })
+
+    afterEach(() => {
+      services = []
+      rpcs = []
+      pods = []
+    })
+
+    describe('updating Duplo services', () => {
+      beforeEach(() => {
+        services = [{Name: 'foo', Image: 'nginx:old'}]
+        rpcs = [rpcFaker('foo', 7, 'nginx:latest')]
+        pods = []
+      })
+
+      it('propagates errors', async () => {
+        // Mock failure
+        mockPatchService.mockImplementation((tenantId: string, request: ServicePatchRequest) => throwError('boom!'))
+
+        const result = await runner.updateServices(ds, tenant)
+
+        expect(core.error).toHaveBeenCalledWith(`${ServiceUpdater.FAILURE}: foo: boom!`)
+      })
+
+      it('propagates success', async () => {
+        const result = await runner.updateServices(ds, tenant)
+
+        expect(core.info).toHaveBeenCalledWith(`${ServiceUpdater.SUCCESS}: foo`)
+      })
+
+      it('fills in a missing AgentPlatform', async () => {
+        const expected = {...services[0], AgentPlatform: 7}
+
+        const result = await runner.updateServices(ds, tenant)
+
+        expect(core.error).not.toHaveBeenCalled()
+
+        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
+        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+      })
+
+      it('uses an explicit AgentPlatform', async () => {
+        services[0].AgentPlatform = 0
+
+        const result = await runner.updateServices(ds, tenant)
+
+        expect(core.error).not.toHaveBeenCalled()
+
+        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
+        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, services[0])
+      })
+
+      it('updates multiple services', async () => {
+        services.push({Name: 'bar', Image: 'busybox:latest'})
+        rpcs.push(rpcFaker('bar', 0, 'busybox:old'))
+
+        const expected0 = {...services[0], AgentPlatform: 7}
+        const expected1 = {...services[1], AgentPlatform: 0}
+
+        const result = await runner.updateServices(ds, tenant)
+
+        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
+        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
+
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected0)
+        expect(core.info).toHaveBeenCalledWith(`${ServiceUpdater.SUCCESS}: foo`)
+
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected1)
+        expect(core.info).toHaveBeenCalledWith(`${ServiceUpdater.SUCCESS}: bar`)
       })
     })
   })

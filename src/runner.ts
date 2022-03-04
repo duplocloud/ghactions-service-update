@@ -50,11 +50,11 @@ export class Runner {
   async updateServices(ds: DataSource, tenant: UserTenant): Promise<ServicePatchResults> {
     // Parse requested updates.
     const serviceUpdates: ServicePatchRequest[] = JSON.parse(core.getInput('services') || '[]')
-    const haveServiceUpdates = !!serviceUpdates.length
+    const haveServiceUpdates = !!serviceUpdates?.length
     const ecsUpdates: EcsServicePatchRequest[] = JSON.parse(core.getInput('ecs_services') || '[]')
-    const haveEcsUpdates = !!ecsUpdates.length
+    const haveEcsUpdates = !!ecsUpdates?.length
     if (!haveServiceUpdates && !haveEcsUpdates) {
-      throw new Error()
+      throw new Error(Runner.ERROR_NOTHING_TO_DO)
     }
 
     // Collect information about the services to update

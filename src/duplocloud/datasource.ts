@@ -14,19 +14,17 @@ import {map} from 'rxjs/operators'
 /**
  * A convenience type representing all types that we know how to extract error messages from.
  */
-export type ErrorMessage = string | ErrorEvent | {message: string}
+export type ErrorMessage = string | {message: string} | {error: {message: string}}
 
-export function extractErrorMessage(err: ErrorMessage): string {
-  // Script error.
-  if (err instanceof ErrorEvent) return err.error.message
+export function extractErrorMessage(err: ErrorMessage | unknown): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyError = err as any
 
   // Plain text error.
   if (typeof err == 'string') return err
 
-  // Error from API calls.
-  if (err?.message) return err.message
-
-  return 'An unexpected error occured!'
+  // Embedded error message.
+  return anyError?.message ?? anyError?.error?.message ?? JSON.stringify(err)
 }
 
 export class DataSource {
