@@ -5,6 +5,7 @@ import {DataSource} from '../src/duplocloud/datasource'
 import {of} from 'rxjs'
 import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
+import * as core from '@actions/core'
 
 jest.mock('@actions/core')
 jest.mock('../src/duplocloud/httpclient')
@@ -50,13 +51,37 @@ describe('ServiceUpdater unit', () => {
   afterEach(() => Object.assign(process.env, origEnv))
 
   describe('buildServiceUpdate()', () => {
+    describe('AgentPlatform', () => {
+      it('can be implicitly read from the ReplicationController', async () => {
+        const expected = {AgentPlatform: existing.Template?.AgentPlatform, ...desired}
+
+        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+        expect(core.error).not.toHaveBeenCalled()
+        expect(result?.UpdateSucceeded).toBeTruthy()
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+      })
+
+      it('can be explicitly passed', async () => {
+        const expected = {AgentPlatform: 0, ...desired}
+        desired.AgentPlatform = 0
+
+        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+        expect(core.error).not.toHaveBeenCalled()
+        expect(result?.UpdateSucceeded).toBeTruthy()
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+      })
+    })
+
     describe('ExtraConfig', () => {
       it('is not written when not specified', async () => {
         const expected = {AgentPlatform: existing.Template?.AgentPlatform, ...desired}
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
-        expect(result).not.toBeNull()
+        expect(core.error).not.toHaveBeenCalled()
+        expect(result?.UpdateSucceeded).toBeTruthy()
         expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
       })
     })
@@ -67,7 +92,8 @@ describe('ServiceUpdater unit', () => {
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
-        expect(result).not.toBeNull()
+        expect(core.error).not.toHaveBeenCalled()
+        expect(result?.UpdateSucceeded).toBeTruthy()
         expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
       })
     })

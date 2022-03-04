@@ -234,30 +234,6 @@ describe('Runner unit', () => {
         expect(core.info).toHaveBeenCalledWith(`${ServiceUpdater.SUCCESS}: foo`)
       })
 
-      it('fills in a missing AgentPlatform', async () => {
-        const expected = {...services[0], AgentPlatform: 7}
-
-        const result = await runner.updateServices(ds, tenant)
-
-        expect(core.error).not.toHaveBeenCalled()
-
-        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
-      })
-
-      it('uses an explicit AgentPlatform', async () => {
-        services[0].AgentPlatform = 0
-
-        const result = await runner.updateServices(ds, tenant)
-
-        expect(core.error).not.toHaveBeenCalled()
-
-        expect(mockGetRpcs).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockGetPods).toHaveBeenCalledWith(tenant.TenantId)
-        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, services[0])
-      })
-
       it('updates multiple services', async () => {
         services.push({Name: 'bar', Image: 'busybox:latest'})
         rpcs.push(rpcFaker('bar', 0, 'busybox:old'))
