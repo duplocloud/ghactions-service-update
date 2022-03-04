@@ -5,8 +5,16 @@ import {ServicePatchResult, ServiceUpdater} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of, throwError} from 'rxjs'
-import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, ServicePatchRequest, UserTenant} from '../src/duplocloud/model'
-import { DuploHttpClient } from '../src/duplocloud/httpclient'
+import {
+  AgentPlatform,
+  Pod,
+  PodContainer,
+  PodTemplate,
+  ReplicationController,
+  ServicePatchRequest,
+  UserTenant
+} from '../src/duplocloud/model'
+import {DuploHttpClient} from '../src/duplocloud/httpclient'
 
 jest.mock('@actions/core')
 
@@ -178,18 +186,23 @@ describe('Runner unit', () => {
     let pods: Pod[] = []
 
     // Function that returns a fake ReplicationController.
-    const rpcFaker = (Name: string, AgentPlatform: AgentPlatform, Image: string) => new ReplicationController({
-      Name,
-      Template: new PodTemplate({
-        AgentPlatform,
-        Containers: [ new PodContainer({
-          Image
-        }) ]
+    const rpcFaker = (Name: string, AgentPlatform: AgentPlatform, Image: string) =>
+      new ReplicationController({
+        Name,
+        Template: new PodTemplate({
+          AgentPlatform,
+          Containers: [
+            new PodContainer({
+              Image
+            })
+          ]
+        })
       })
-    })
 
     // Mock Duplo API calls.
-    const mockGetRpcs = jest.spyOn(DataSource.prototype, 'getReplicationControllers').mockImplementation((tenantId: string) => of(rpcs))
+    const mockGetRpcs = jest
+      .spyOn(DataSource.prototype, 'getReplicationControllers')
+      .mockImplementation((tenantId: string) => of(rpcs))
     const mockGetPods = jest.spyOn(DataSource.prototype, 'getPods').mockImplementation((tenantId: string) => of(pods))
     const mockPatchService = jest.spyOn(DataSource.prototype, 'patchService')
 

@@ -11,16 +11,14 @@ exports.DataSource = exports.extractErrorMessage = void 0;
 const model_1 = __nccwpck_require__(5159);
 const operators_1 = __nccwpck_require__(7801);
 function extractErrorMessage(err) {
-    // Script error.
-    if (err instanceof ErrorEvent)
-        return err.error.message;
+    var _a, _b, _c;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyError = err;
     // Plain text error.
     if (typeof err == 'string')
         return err;
-    // Error from API calls.
-    if (err === null || err === void 0 ? void 0 : err.message)
-        return err.message;
-    return 'An unexpected error occured!';
+    // Embedded error message.
+    return (_c = (_a = anyError === null || anyError === void 0 ? void 0 : anyError.message) !== null && _a !== void 0 ? _a : (_b = anyError === null || anyError === void 0 ? void 0 : anyError.error) === null || _b === void 0 ? void 0 : _b.message) !== null && _c !== void 0 ? _c : JSON.stringify(err);
 }
 exports.extractErrorMessage = extractErrorMessage;
 class DataSource {
@@ -441,37 +439,6 @@ class EcsServiceUpdater {
             throw new Error('service.Image: missing or empty');
         this.name = desired.Name;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    removeEmptyKeys(obj) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const newObj = {};
-        for (const key of Object.keys(obj)) {
-            if (obj[key] && Array.isArray(obj[key])) {
-                if (obj[key].length) {
-                    newObj[key] = obj[key];
-                }
-            }
-            else if (obj[key] && typeof obj[key] === 'object') {
-                if (Object.keys(obj[key]).length) {
-                    newObj[key] = obj[key];
-                }
-            }
-            else if (obj[key]) {
-                newObj[key] = obj[key]; // copy value
-            }
-        }
-        return newObj;
-    }
-    sanitizeTaskDef(taskDef) {
-        this.removeEmptyKeys(taskDef);
-        taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt));
-        delete taskDef.DeregisteredAt;
-        delete taskDef.RegisteredAt;
-        delete taskDef.RegisteredBy;
-        delete taskDef.Revision;
-        delete taskDef.Status;
-        delete taskDef.TaskDefinitionArn;
-    }
     buildServiceUpdate() {
         // Find the task definition.
         return this.ds.getTaskDefinitionDetails(this.tenant.TenantId, this.existingTaskDefArn.TaskDefinitionArn).pipe((0, operators_1.mergeMap)(existingTaskDef => {
@@ -513,6 +480,37 @@ class EcsServiceUpdater {
             core.error(`Failed to find ECS task definition: ${JSON.stringify(err)}`);
             return (0, rxjs_1.of)({ UpdateSucceeded: false });
         }));
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    removeEmptyKeys(obj) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const newObj = {};
+        for (const key of Object.keys(obj)) {
+            if (obj[key] && Array.isArray(obj[key])) {
+                if (obj[key].length) {
+                    newObj[key] = obj[key];
+                }
+            }
+            else if (obj[key] && typeof obj[key] === 'object') {
+                if (Object.keys(obj[key]).length) {
+                    newObj[key] = obj[key];
+                }
+            }
+            else if (obj[key]) {
+                newObj[key] = obj[key]; // copy value
+            }
+        }
+        return newObj;
+    }
+    sanitizeTaskDef(taskDef) {
+        this.removeEmptyKeys(taskDef);
+        taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt));
+        delete taskDef.DeregisteredAt;
+        delete taskDef.RegisteredAt;
+        delete taskDef.RegisteredBy;
+        delete taskDef.Revision;
+        delete taskDef.Status;
+        delete taskDef.TaskDefinitionArn;
     }
 }
 exports.EcsServiceUpdater = EcsServiceUpdater;
@@ -590,11 +588,11 @@ class Runner {
         return __awaiter(this, void 0, void 0, function* () {
             // Parse requested updates.
             const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
-            const haveServiceUpdates = !!serviceUpdates.length;
+            const haveServiceUpdates = !!(serviceUpdates === null || serviceUpdates === void 0 ? void 0 : serviceUpdates.length);
             const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
-            const haveEcsUpdates = !!ecsUpdates.length;
+            const haveEcsUpdates = !!(ecsUpdates === null || ecsUpdates === void 0 ? void 0 : ecsUpdates.length);
             if (!haveServiceUpdates && !haveEcsUpdates) {
-                throw new Error();
+                throw new Error(Runner.ERROR_NOTHING_TO_DO);
             }
             // Collect information about the services to update
             const lookupApis = {};
@@ -712,6 +710,7 @@ exports.ServiceUpdater = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const rxjs_1 = __nccwpck_require__(5805);
 const operators_1 = __nccwpck_require__(7801);
+const datasource_1 = __nccwpck_require__(8835);
 class ServiceUpdater {
     constructor(tenant, desired, existing, pods, ds) {
         var _a, _b;
@@ -750,15 +749,17 @@ class ServiceUpdater {
         }
         // Build the API call and prepare to output status about the API call
         return this.ds.patchService(this.tenant.TenantId, this.desired).pipe((0, operators_1.map)(rp => {
-            core.info(`Updated duplo service: ${this.desired.Name}`);
+            core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`);
             return { ImagePrev, Replicas, Containers, UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
         }), (0, operators_1.catchError)(err => {
-            core.error(`Failed to update Duplo service(s): ${JSON.stringify(err)}`);
+            core.error(`${ServiceUpdater.FAILURE}: ${this.desired.Name}: ${(0, datasource_1.extractErrorMessage)(err)}`);
             return (0, rxjs_1.of)({ ImagePrev, Replicas, Containers, UpdateSucceeded: false });
         }));
     }
 }
 exports.ServiceUpdater = ServiceUpdater;
+ServiceUpdater.SUCCESS = 'Updated Duplo service';
+ServiceUpdater.FAILURE = 'Failed to update Duplo service';
 
 
 /***/ }),
