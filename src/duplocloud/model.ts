@@ -171,7 +171,7 @@ export class PodContainer {
   Image!: string
   TenantId?: string
   InstanceId?: string
-  DockerId: string = ''
+  DockerId = ''
 }
 
 export class PodInterface {
@@ -197,7 +197,7 @@ export class Pod {
   ReplicaId?: number
   InstanceId?: string
   Host?: string
-  IsAwaitingLBDeregistration: boolean = false
+  IsAwaitingLBDeregistration = false
   Name!: string
   Containers: PodContainer[] = []
   Interfaces: PodInterface[] = []
@@ -215,7 +215,7 @@ export class Pod {
   BaseVersion?: string
   Cloud: CloudPlatform = CloudPlatform.AWS
   ImageUpdateTime?: Date
-  IsReadOnly: boolean = false
+  IsReadOnly = false
   // LBConfigurations: {[key: string]: LBConfiguration}
   // LBCCount: number
   AllocationTags?: string
@@ -379,7 +379,7 @@ export class ContainerDefinition {
   MemoryReservation?: number
   HealthCheck?: any
   MountPoints?: any[]
-  Name: string = 'default'
+  Name = 'default'
   PortMappings?: PortMapping[]
   Privileged?: boolean
   PseudoTerminal?: boolean
