@@ -33,40 +33,6 @@ export class EcsServiceUpdater {
     this.name = desired.Name
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private removeEmptyKeys(obj: any): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const newObj: any = {}
-
-    for (const key of Object.keys(obj)) {
-      if (obj[key] && Array.isArray(obj[key])) {
-        if (obj[key].length) {
-          newObj[key] = obj[key]
-        }
-      } else if (obj[key] && typeof obj[key] === 'object') {
-        if (Object.keys(obj[key]).length) {
-          newObj[key] = obj[key]
-        }
-      } else if (obj[key]) {
-        newObj[key] = obj[key] // copy value
-      }
-    }
-
-    return newObj
-  }
-
-  private sanitizeTaskDef(taskDef: EcsTaskDefinition): void {
-    this.removeEmptyKeys(taskDef)
-    taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt))
-
-    delete taskDef.DeregisteredAt
-    delete taskDef.RegisteredAt
-    delete taskDef.RegisteredBy
-    delete taskDef.Revision
-    delete taskDef.Status
-    delete taskDef.TaskDefinitionArn
-  }
-
   buildServiceUpdate(): Observable<EcsServicePatchResult> {
     // Find the task definition.
     return this.ds.getTaskDefinitionDetails(this.tenant.TenantId, this.existingTaskDefArn.TaskDefinitionArn).pipe(
@@ -118,5 +84,39 @@ export class EcsServiceUpdater {
         return of({UpdateSucceeded: false})
       })
     )
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private removeEmptyKeys(obj: any): any {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newObj: any = {}
+
+    for (const key of Object.keys(obj)) {
+      if (obj[key] && Array.isArray(obj[key])) {
+        if (obj[key].length) {
+          newObj[key] = obj[key]
+        }
+      } else if (obj[key] && typeof obj[key] === 'object') {
+        if (Object.keys(obj[key]).length) {
+          newObj[key] = obj[key]
+        }
+      } else if (obj[key]) {
+        newObj[key] = obj[key] // copy value
+      }
+    }
+
+    return newObj
+  }
+
+  private sanitizeTaskDef(taskDef: EcsTaskDefinition): void {
+    this.removeEmptyKeys(taskDef)
+    taskDef.ContainerDefinitions = taskDef.ContainerDefinitions.map(cnt => this.removeEmptyKeys(cnt))
+
+    delete taskDef.DeregisteredAt
+    delete taskDef.RegisteredAt
+    delete taskDef.RegisteredBy
+    delete taskDef.Revision
+    delete taskDef.Status
+    delete taskDef.TaskDefinitionArn
   }
 }
