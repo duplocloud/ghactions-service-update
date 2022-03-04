@@ -44,7 +44,7 @@ jobs:
           git config --global user.name $git_user &&
           git config --global user.email $git_email
       - name: Use Node.js 16.x
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: 16.x
       - name: Start gitflow release
