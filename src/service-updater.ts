@@ -129,15 +129,15 @@ export class ServiceUpdater {
 
     if (this.desired.Env) env = this.desired.Env as K8sEnvEntry[]
 
-    if (this.desired.MergeEnv) {
-      for (const merge of this.desired.MergeEnv as K8sEnvEntry[]) {
-        const replace = env.find(entry => entry.Name === merge.Name)
-        if (replace) Object.assign(replace, merge)
-        else env.push(merge)
+    if (Array.isArray(this.desired.MergeEnv)) {
+      for (const mergeEntry of this.desired.MergeEnv) {
+        const replace = env.find(entry => entry.Name === mergeEntry.Name)
+        if (replace) Object.assign(replace, mergeEntry)
+        else env.push(mergeEntry)
       }
     }
 
-    if (this.desired.DeleteEnv && env?.length) env = env.filter(entry => this.desired.DeleteEnv?.includes(entry.Name))
+    if (this.desired.DeleteEnv && env?.length) env = env.filter(entry => !this.desired.DeleteEnv?.includes(entry.Name))
 
     return env
   }

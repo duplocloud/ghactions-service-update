@@ -317,7 +317,7 @@ describe('ServiceUpdater unit', () => {
 
         it('can create a new OtherDockerConfig', async () => {
           existing.Template.OtherDockerConfig = ''
-          expected.OtherDockerConfig = JSON.stringify({ Env: desired.Env })
+          expected.OtherDockerConfig = JSON.stringify({ Env: desired.MergeEnv })
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
