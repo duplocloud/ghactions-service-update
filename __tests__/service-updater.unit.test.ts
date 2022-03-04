@@ -6,6 +6,7 @@ import {of} from 'rxjs'
 import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, ReplicationControllerChangeRequest, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import * as core from '@actions/core'
+import { connectableObservableDescriptor } from 'rxjs/internal/observable/ConnectableObservable'
 
 jest.mock('@actions/core')
 jest.mock('../src/duplocloud/httpclient')
@@ -278,6 +279,52 @@ describe('ServiceUpdater unit', () => {
           expect(result?.UpdateSucceeded).toBeTruthy()
           expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
         })
+
+        it('only writes to OtherDockerConfig.Env', async () => {
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'bar', Value: 'foo'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+          })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('can update entries in-place', async () => {
+          desired.MergeEnv = [{Name: 'two', Value: 'TWO'}]
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'one', Value: '1'},{Name: 'two', Value: '2'},{Name: 'three', Value: '3'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'one', Value: '1'},{Name: 'two', Value: 'TWO'},{Name: 'three', Value: '3'}]
+          })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('can create a new OtherDockerConfig', async () => {
+          existing.Template.OtherDockerConfig = ''
+          expected.OtherDockerConfig = JSON.stringify({ Env: desired.Env })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
       })
 
       describe('from DeleteEnv', () => {
@@ -290,6 +337,51 @@ describe('ServiceUpdater unit', () => {
 
           const result = await createServiceUpdater().buildServiceUpdate().toPromise()
           expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('only writes to OtherDockerConfig.Env', async () => {
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({
+            PodLabels: {foo: 'bar'},
+            Env: [{Name: 'bar', Value: 'foo'}]
+          })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('removes from OtherDockerConfig.Env', async () => {
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            Env: [{Name: 'bar', Value: 'foo'},{Name: 'foo', Value: 'bar'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({
+            Env: [{Name: 'bar', Value: 'foo'}]
+          })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+
+        it('can clear OtherDockerConfig.Env', async () => {
+          existing.Template.OtherDockerConfig = JSON.stringify({
+            Env: [{Name: 'foo', Value: 'bar'}]
+          })
+          expected.OtherDockerConfig = JSON.stringify({ Env: [] })
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()

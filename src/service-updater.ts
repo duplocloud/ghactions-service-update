@@ -129,6 +129,16 @@ export class ServiceUpdater {
 
     if (this.desired.Env) env = this.desired.Env as K8sEnvEntry[]
 
+    if (this.desired.MergeEnv) {
+      for (const merge of this.desired.MergeEnv as K8sEnvEntry[]) {
+        const replace = env.find(entry => entry.Name === merge.Name)
+        if (replace) Object.assign(replace, merge)
+        else env.push(merge)
+      }
+    }
+
+    if (this.desired.DeleteEnv && env?.length) env = env.filter(entry => this.desired.DeleteEnv?.includes(entry.Name))
+
     return env
   }
 
@@ -136,10 +146,12 @@ export class ServiceUpdater {
     let env: DockerEnv = (this.existing.ExtraConfigAsJSON ?? {}) as DockerEnv
 
     if (this.desired.Env) env = this.desired.Env as DockerEnv
+
     if (this.desired.MergeEnv) {
       env ??= {}
       Object.assign(env, this.desired.MergeEnv)
     }
+
     if (this.desired.DeleteEnv) for (const key of this.desired.DeleteEnv) delete env[key]
 
     return env
