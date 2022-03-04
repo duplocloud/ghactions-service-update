@@ -3,7 +3,7 @@ import {expect, jest} from '@jest/globals'
 import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import {DataSource} from '../src/duplocloud/datasource'
 import {of} from 'rxjs'
-import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, UserTenant} from '../src/duplocloud/model'
+import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, ReplicationControllerChangeRequest, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import * as core from '@actions/core'
 
@@ -34,6 +34,12 @@ describe('ServiceUpdater unit', () => {
   let desired = new ServiceUpdateRequest({Name: 'foo', Image: 'nginx:oldest'})
   let existing = rpcFaker('foo', 0, 'nginx:latest')
   let pods: Pod[] = []
+  beforeEach(() => {
+    tenant = new UserTenant({TenantId: 'FAKE_TENANT_ID', AccountName: 'fake'})
+    desired = new ServiceUpdateRequest({Name: 'foo', Image: 'nginx:oldest'})
+    existing = rpcFaker('foo', 0, 'nginx:latest')
+    pods = []
+  })
 
   // Mock the patchService method to succeed by default.
   const mockPatchService = jest.spyOn(DataSource.prototype, 'patchService')
@@ -51,9 +57,21 @@ describe('ServiceUpdater unit', () => {
   afterEach(() => Object.assign(process.env, origEnv))
 
   describe('buildServiceUpdate()', () => {
+
+    // Initialize the default expected value prior to each test.
+    const defaultExpected = () => new ReplicationControllerChangeRequest({
+      Name: desired.Name,
+      Image: desired.Image,
+
+      // AgentPlatform can be explicitly specified, or implicity read from the backend
+      AgentPlatform: (desired.AgentPlatform || desired.AgentPlatform===0) ? desired.AgentPlatform : existing.Template?.AgentPlatform
+    })
+    let expected = defaultExpected()
+    beforeEach(() => expected = defaultExpected())
+
     describe('AgentPlatform', () => {
       it('can be implicitly read from the ReplicationController', async () => {
-        const expected = {AgentPlatform: existing.Template?.AgentPlatform, ...desired}
+        expected.AgentPlatform = existing.Template?.AgentPlatform as AgentPlatform
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -63,8 +81,8 @@ describe('ServiceUpdater unit', () => {
       })
 
       it('can be explicitly passed', async () => {
-        const expected = {AgentPlatform: 0, ...desired}
-        desired.AgentPlatform = 0
+        if (existing.Template) existing.Template.AgentPlatform = 0
+        expected.AgentPlatform = desired.AgentPlatform = 7
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -76,7 +94,70 @@ describe('ServiceUpdater unit', () => {
 
     describe('ExtraConfig', () => {
       it('is not written when not specified', async () => {
-        const expected = {AgentPlatform: existing.Template?.AgentPlatform, ...desired}
+        delete expected.ExtraConfig
+        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+        expect(core.error).not.toHaveBeenCalled()
+        expect(result?.UpdateSucceeded).toBeTruthy()
+        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+      })
+
+      describe('from Env', () => {
+        beforeEach(() => desired.Env = [
+          {Name: 'foo', Value: 'bar'}
+        ])
+
+        it('is not written when AgentPlatform is 7', async () => {
+          desired.AgentPlatform = 7
+          expected = defaultExpected()
+          delete expected.ExtraConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+      })
+
+      describe('from MergeEnv', () => {
+        beforeEach(() => desired.MergeEnv = [
+          {Name: 'foo', Value: 'bar'}
+        ])
+
+        it('is not written when AgentPlatform is 7', async () => {
+          desired.AgentPlatform = 7
+          expected = defaultExpected()
+          delete expected.ExtraConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+      })
+
+      describe('from DeleteEnv', () => {
+        beforeEach(() => desired.DeleteEnv = ['foo'])
+
+        it('is not written when AgentPlatform is 7', async () => {
+          desired.AgentPlatform = 7
+          expected = defaultExpected()
+          delete expected.ExtraConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+      })
+    })
+
+    describe('OtherDockerConfig', () => {
+      it('is not written when not specified', async () => {
+        delete expected.OtherDockerConfig
 
         const result = await createServiceUpdater().buildServiceUpdate().toPromise()
 
@@ -84,17 +165,57 @@ describe('ServiceUpdater unit', () => {
         expect(result?.UpdateSucceeded).toBeTruthy()
         expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
       })
-    })
 
-    describe('OtherDockerConfig', () => {
-      it('is not written when not specified', async () => {
-        const expected = {AgentPlatform: existing.Template?.AgentPlatform, ...desired}
+      describe('from Env', () => {
+        beforeEach(() => desired.Env = [
+          {Name: 'foo', Value: 'bar'}
+        ])
 
-        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+        it('is not written when AgentPlatform is NOT 7', async () => {
+          desired.AgentPlatform = 0
+          expected = defaultExpected()
+          delete expected.OtherDockerConfig
 
-        expect(core.error).not.toHaveBeenCalled()
-        expect(result?.UpdateSucceeded).toBeTruthy()
-        expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+      })
+
+      describe('from MergeEnv', () => {
+        beforeEach(() => desired.MergeEnv = [
+          {Name: 'foo', Value: 'bar'}
+        ])
+
+        it('is not written when AgentPlatform is NOT 7', async () => {
+          desired.AgentPlatform = 0
+          expected = defaultExpected()
+          delete expected.OtherDockerConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
+      })
+
+      describe('from DeleteEnv', () => {
+        beforeEach(() => desired.DeleteEnv = ['foo'])
+
+        it('is not written when AgentPlatform is NOT 7', async () => {
+          desired.AgentPlatform = 0
+          expected = defaultExpected()
+          delete expected.OtherDockerConfig
+
+          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+
+          expect(core.error).not.toHaveBeenCalled()
+          expect(result?.UpdateSucceeded).toBeTruthy()
+          expect(mockPatchService).toHaveBeenCalledWith(tenant.TenantId, expected)
+        })
       })
     })
   })

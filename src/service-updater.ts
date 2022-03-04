@@ -28,10 +28,10 @@ export class ServiceUpdateRequest {
   AgentPlatform?: AgentPlatform
 
   // Completely replaces environment variables.
-  Env?: {[name: string]: string} | K8sEnvEntry
+  Env?: ({[name: string]: string} | K8sEnvEntry)[]
 
   // Merges on to of existing environment variables.
-  MergeEnv?: {[name: string]: string} | K8sEnvEntry
+  MergeEnv?: ({[name: string]: string} | K8sEnvEntry)[]
 
   // Deletes the named environment variables.
   DeleteEnv?: string[]
