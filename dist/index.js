@@ -586,12 +586,23 @@ class Runner {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             // Parse requested updates.
-            const serviceUpdates = JSON.parse(core.getInput('services') || '[]');
+            let serviceUpdates = JSON.parse(core.getInput('services') || '[]');
             const haveServiceUpdates = !!(serviceUpdates === null || serviceUpdates === void 0 ? void 0 : serviceUpdates.length);
             const ecsUpdates = JSON.parse(core.getInput('ecs_services') || '[]');
             const haveEcsUpdates = !!(ecsUpdates === null || ecsUpdates === void 0 ? void 0 : ecsUpdates.length);
             if (!haveServiceUpdates && !haveEcsUpdates) {
                 throw new Error(Runner.ERROR_NOTHING_TO_DO);
+            }
+            // Try to repair possible bad input from the user.
+            if (!Array.isArray(serviceUpdates))
+                serviceUpdates = [serviceUpdates];
+            for (const serviceUpdate of serviceUpdates) {
+                // Validate Agent Platform
+                let agentPlatform = serviceUpdate.AgentPlatform;
+                if (typeof agentPlatform == 'string' && /^[0-9]+/.test(agentPlatform))
+                    agentPlatform = parseInt(agentPlatform);
+                if (![0, 5, 7, undefined, null].includes(agentPlatform))
+                    throw new Error(`${Runner.ERROR_BAD_AGENT_PLATFORM}: service ${serviceUpdate.Name}: platform ${JSON.stringify(serviceUpdate.AgentPlatform)}`);
             }
             // Collect information about the services to update
             const lookupApis = {};
@@ -676,6 +687,7 @@ Runner.ERROR_NO_SUCH_DUPLO_SERVICE = 'No such duplo service';
 Runner.ERROR_NO_SUCH_ECS_SERVICE = 'No such ECS service';
 Runner.ERROR_NO_SUCH_ECS_TASKDEF = 'Cannot find ECS task definition ARN for';
 Runner.ERROR_FAILED_TO_UPDATE = 'Failed to update service';
+Runner.ERROR_BAD_AGENT_PLATFORM = 'Unsupported agent platform';
 
 
 /***/ }),

@@ -67,6 +67,30 @@ describe('Runner unit', () => {
         expect(core.setFailed).toHaveBeenCalledWith(Runner.ERROR_NOTHING_TO_DO)
       })
 
+      it('fails if AgentPlatform is unsupported', async () => {
+        inputs['tenant'] = 'fake'
+        inputs['services'] = '[{"Name":"foo", "AgentPlatform":8}]'
+
+        await runner.runAction()
+        expect(core.setFailed).toHaveBeenCalledWith(`${Runner.ERROR_BAD_AGENT_PLATFORM}: service foo: platform 8`)
+      })
+
+      it('fails if AgentPlatform is an unsupported string', async () => {
+        inputs['tenant'] = 'fake'
+        inputs['services'] = '[{"Name":"foo", "AgentPlatform":"8"}]'
+
+        await runner.runAction()
+        expect(core.setFailed).toHaveBeenCalledWith(`${Runner.ERROR_BAD_AGENT_PLATFORM}: service foo: platform "8"`)
+      })
+
+      it('fails if AgentPlatform is unparsable', async () => {
+        inputs['tenant'] = 'fake'
+        inputs['services'] = '[{"Name":"foo", "AgentPlatform":"hi"}]'
+
+        await runner.runAction()
+        expect(core.setFailed).toHaveBeenCalledWith(`${Runner.ERROR_BAD_AGENT_PLATFORM}: service foo: platform "hi"`)
+      })
+
       describe('tenant access', () => {
         it('fails without tenant', async () => {
           await runner.runAction()

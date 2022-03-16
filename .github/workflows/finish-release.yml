@@ -55,4 +55,5 @@ jobs:
       - name: Version bump
         run: |
           npm version patch --no-git-tag-version &&
+          git config -am 'version bump' package*.json &&
           git push

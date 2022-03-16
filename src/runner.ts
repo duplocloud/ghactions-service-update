@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import {
+  AgentPlatform,
   EcsServiceModel,
   EcsServicePatchRequest,
   EcsTaskDefinitionArn,
@@ -39,6 +40,7 @@ export class Runner {
   static readonly ERROR_NO_SUCH_ECS_SERVICE = 'No such ECS service'
   static readonly ERROR_NO_SUCH_ECS_TASKDEF = 'Cannot find ECS task definition ARN for'
   static readonly ERROR_FAILED_TO_UPDATE = 'Failed to update service'
+  static readonly ERROR_BAD_AGENT_PLATFORM = 'Unsupported agent platform'
 
   /**
    * Updates one or more duplo services in parallel
@@ -48,12 +50,26 @@ export class Runner {
    */
   async updateServices(ds: DataSource, tenant: UserTenant): Promise<ServicePatchResults> {
     // Parse requested updates.
-    const serviceUpdates: ServiceUpdateRequest[] = JSON.parse(core.getInput('services') || '[]')
+    let serviceUpdates: ServiceUpdateRequest[] = JSON.parse(core.getInput('services') || '[]')
     const haveServiceUpdates = !!serviceUpdates?.length
     const ecsUpdates: EcsServicePatchRequest[] = JSON.parse(core.getInput('ecs_services') || '[]')
     const haveEcsUpdates = !!ecsUpdates?.length
     if (!haveServiceUpdates && !haveEcsUpdates) {
       throw new Error(Runner.ERROR_NOTHING_TO_DO)
+    }
+
+    // Try to repair possible bad input from the user.
+    if (!Array.isArray(serviceUpdates)) serviceUpdates = [serviceUpdates]
+    for (const serviceUpdate of serviceUpdates) {
+      // Validate Agent Platform
+      let agentPlatform: string | number | undefined = serviceUpdate.AgentPlatform
+      if (typeof agentPlatform == 'string' && /^[0-9]+/.test(agentPlatform)) agentPlatform = parseInt(agentPlatform)
+      if (![0, 5, 7, undefined, null].includes(agentPlatform))
+        throw new Error(
+          `${Runner.ERROR_BAD_AGENT_PLATFORM}: service ${serviceUpdate.Name}: platform ${JSON.stringify(
+            serviceUpdate.AgentPlatform
+          )}`
+        )
     }
 
     // Collect information about the services to update
