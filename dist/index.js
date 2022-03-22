@@ -669,6 +669,8 @@ class Runner {
                     throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
             }
             catch (error) {
+                // eslint-disable-next-line no-console
+                console.log('error', error);
                 if (error instanceof Error) {
                     core.setFailed(error.message);
                 }
