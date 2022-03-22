@@ -115,6 +115,9 @@ export class Runner {
   }
 
   async runAction(): Promise<void> {
+    // Should we be verbose?
+    const verbose = core.getBooleanInput('verbose')
+
     try {
       // Connect to Duplo.
       const duploHost = core.getInput('duplo_host')
@@ -142,8 +145,10 @@ export class Runner {
           throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log('error', error)
+      if (verbose) {
+        // eslint-disable-next-line no-console
+        console.log('error', error)
+      }
       if (error instanceof Error) {
         core.setFailed(error.message)
       } else {

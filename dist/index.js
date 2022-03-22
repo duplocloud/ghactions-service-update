@@ -644,6 +644,8 @@ class Runner {
     }
     runAction() {
         return __awaiter(this, void 0, void 0, function* () {
+            // Should we be verbose?
+            const verbose = core.getBooleanInput('verbose');
             try {
                 // Connect to Duplo.
                 const duploHost = core.getInput('duplo_host');
@@ -671,8 +673,10 @@ class Runner {
                 }
             }
             catch (error) {
-                // eslint-disable-next-line no-console
-                console.log('error', error);
+                if (verbose) {
+                    // eslint-disable-next-line no-console
+                    console.log('error', error);
+                }
                 if (error instanceof Error) {
                     core.setFailed(error.message);
                 }
