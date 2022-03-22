@@ -635,8 +635,8 @@ class Runner {
             }
             // Build the updates to execute in parallel.
             const apiCalls = {};
-            for (const desired of serviceUpdates) {
-                apiCalls[desired.Name] = updaters[desired.Name].buildServiceUpdate();
+            for (const name of Object.keys(updaters)) {
+                apiCalls[name] = updaters[name].buildServiceUpdate();
             }
             // Perform the updates in parallel, failing on error.
             return (0, rxjs_1.forkJoin)(apiCalls).toPromise();
@@ -659,14 +659,16 @@ class Runner {
                 // Update all services.
                 const updateResults = yield this.updateServices(ds, tenant);
                 // Check for failures.
-                const failures = [];
-                for (const key of Object.keys(updateResults)) {
-                    if (!updateResults[key].UpdateSucceeded) {
-                        failures.push(key);
+                if (updateResults) {
+                    const failures = [];
+                    for (const key of Object.keys(updateResults)) {
+                        if (!updateResults[key].UpdateSucceeded) {
+                            failures.push(key);
+                        }
                     }
+                    if (failures.length)
+                        throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
                 }
-                if (failures.length)
-                    throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`);
             }
             catch (error) {
                 // eslint-disable-next-line no-console
