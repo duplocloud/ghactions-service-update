@@ -23,6 +23,10 @@ inputs:
     required: false
     description: 'Whether or not to wait until the services have been succesfully updated'
     default: 'false'
+  verbose:
+    required: false
+    description: 'Turn on verbose output'
+    default: 'false'
 runs:
   using: 'node16'
   main: 'dist/index.js'

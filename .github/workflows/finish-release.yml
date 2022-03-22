@@ -55,5 +55,9 @@ jobs:
       - name: Version bump
         run: |
           npm version patch --no-git-tag-version &&
-          git config -am 'version bump' package*.json &&
-          git push
+          git commit -m 'version bump' package*.json
+      - name: Push develop
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
+          branch: develop

@@ -1,6 +1,5 @@
 import * as core from '@actions/core'
 import {
-  AgentPlatform,
   EcsServiceModel,
   EcsServicePatchRequest,
   EcsTaskDefinitionArn,
@@ -107,8 +106,8 @@ export class Runner {
 
     // Build the updates to execute in parallel.
     const apiCalls: {[name: string]: Observable<ServicePatchResult | EcsServicePatchResult>} = {}
-    for (const desired of serviceUpdates) {
-      apiCalls[desired.Name] = updaters[desired.Name].buildServiceUpdate()
+    for (const name of Object.keys(updaters)) {
+      apiCalls[name] = updaters[name].buildServiceUpdate()
     }
 
     // Perform the updates in parallel, failing on error.
@@ -116,6 +115,9 @@ export class Runner {
   }
 
   async runAction(): Promise<void> {
+    // Should we be verbose?
+    const verbose = core.getBooleanInput('verbose')
+
     try {
       // Connect to Duplo.
       const duploHost = core.getInput('duplo_host')
@@ -132,15 +134,21 @@ export class Runner {
       const updateResults = await this.updateServices(ds, tenant)
 
       // Check for failures.
-      const failures: string[] = []
-      for (const key of Object.keys(updateResults)) {
-        if (!updateResults[key].UpdateSucceeded) {
-          failures.push(key)
+      if (updateResults) {
+        const failures: string[] = []
+        for (const key of Object.keys(updateResults)) {
+          if (!updateResults[key].UpdateSucceeded) {
+            failures.push(key)
+          }
         }
+        if (failures.length)
+          throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`)
       }
-      if (failures.length)
-        throw new Error(`${Runner.ERROR_FAILED_TO_UPDATE}${failures.length > 1 ? 's' : ''}: ${failures.join(', ')}`)
     } catch (error) {
+      if (verbose) {
+        // eslint-disable-next-line no-console
+        console.log('error', error)
+      }
       if (error instanceof Error) {
         core.setFailed(error.message)
       } else {
