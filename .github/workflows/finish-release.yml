@@ -31,6 +31,8 @@ jobs:
         id: finish-release
         uses: duplocloud/ghactions-finish-gitflow-release@master
         with:
+          validate_merge: false
+          delete_ref: false
           github_token: ${{ secrets.RELEASE_BOT_GITHUB_TOKEN }}
 
   version-bump:
@@ -42,6 +44,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: develop
+          fetch-depth: 0
+          persist-credentials: false  # Needed so we can push with different credentials.
+                                      # NOTE: Pushing with different credentials allows admins to push protected branches.
+                                      # NOTE: Pushing with different credentials allow workflows to trigger from the push.
 
       # BUMP THE DEVELOPMENT VERSION
       - name: Initialize mandatory git config
