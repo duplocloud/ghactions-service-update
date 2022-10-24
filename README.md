@@ -80,7 +80,7 @@ jobs:
 | Image | Docker image to deploy | true | unset |
 | AgentPlatform | Agent platform identifier | false | (retain existing value in Duplo) |
 | Env | Overwrites all environment variables (see below for JSON format) | false | (retain existing value in Duplo) |
-| MergeEnv | Overwrites all environment variables (see below for JSON format) | false | unset |
+| MergeEnv | Merges only the given environment variables (see below for JSON format) | false | unset |
 | DeleteEnv | Deletes environment variables (see below for JSON format) | false | unset |
 
 #### services.Env / services.MergeEnv
