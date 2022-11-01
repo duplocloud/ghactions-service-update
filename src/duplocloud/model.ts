@@ -85,6 +85,7 @@ export class ReplicationControllerChangeRequest {
   Image!: string
   AgentPlatform!: AgentPlatform
   ExtraConfig?: string
+  AllocationTags?: string
   OtherDockerConfig?: string
 }
 
