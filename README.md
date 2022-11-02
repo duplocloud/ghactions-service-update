@@ -82,6 +82,7 @@ jobs:
 | Env | Overwrites all environment variables (see below for JSON format) | false | (retain existing value in Duplo) |
 | MergeEnv | Merges only the given environment variables (see below for JSON format) | false | unset |
 | DeleteEnv | Deletes environment variables (see below for JSON format) | false | unset |
+| AllocationTags | Allocation Tags | false | (retain existing value in Duplo) |
 
 #### services.Env / services.MergeEnv
 

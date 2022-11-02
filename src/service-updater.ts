@@ -30,6 +30,7 @@ export class ServiceUpdateRequest {
   Name!: string
   Image!: string
   AgentPlatform?: AgentPlatform
+  AllocationTags?: string
 
   // Completely replaces environment variables.
   Env?: DockerEnv | K8sEnvEntry[]
@@ -89,10 +90,15 @@ export class ServiceUpdater {
     const rq = new ReplicationControllerChangeRequest({
       Name: this.desired.Name,
       Image: this.desired.Image,
-      AgentPlatform: this.desired.AgentPlatform
+      AgentPlatform: this.desired.AgentPlatform,
+      AllocationTags: this.desired.AllocationTags
     })
     if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
       rq.AgentPlatform = this.existing.Template.AgentPlatform
+    }
+
+    if (!rq.AllocationTags?.length) {
+      rq.AllocationTags = this.existing.Template.AllocationTags
     }
 
     // Add environment variables to the change request.

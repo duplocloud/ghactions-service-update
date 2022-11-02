@@ -752,7 +752,7 @@ class ServiceUpdater {
         this.name = desired.Name;
     }
     buildServiceUpdate() {
-        var _a;
+        var _a, _b;
         // Collect data about the existing service and pods.
         const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
         const Replicas = this.existing.Replicas;
@@ -773,10 +773,14 @@ class ServiceUpdater {
         const rq = new model_1.ReplicationControllerChangeRequest({
             Name: this.desired.Name,
             Image: this.desired.Image,
-            AgentPlatform: this.desired.AgentPlatform
+            AgentPlatform: this.desired.AgentPlatform,
+            AllocationTags: this.desired.AllocationTags
         });
         if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
             rq.AgentPlatform = this.existing.Template.AgentPlatform;
+        }
+        if (!((_b = rq.AllocationTags) === null || _b === void 0 ? void 0 : _b.length)) {
+            rq.AllocationTags = this.existing.Template.AllocationTags;
         }
         // Add environment variables to the change request.
         if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
