@@ -1,15 +1,13 @@
 name: Test
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - develop
-      - master
-      - 'release/*'
 env:
-  duplo_host: ${{ secrets.DUPLO_HOST }}
-  duplo_token: ${{ secrets.DUPLO_TOKEN }}
-  duplo_tenant_id: ${{ secrets.DUPLO_TENANT_ID }}
+  duplo_host: https://prod.duplocloud.net
+  duplo_tenant_id: 4b5f6dd7-c95b-4ab7-b6c6-10883941ad30
+  duplo_tenant_name: gha-tests
+  # user:   github-duplo-bot
+  #   token:  github-duplo-cicd
+  duplo_token: ${{ secrets.RELEASE_BOT_DUPLO_TOKEN }}
 
 jobs:
   build: # make sure build/ci work properly
