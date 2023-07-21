@@ -7,8 +7,11 @@ import {EcsServiceUpdater} from '../src/ecs-service-updater'
 describe('EcsServiceUpdater integration', () => {
   // Integration tests.
   const tenantId = process.env.duplo_tenant_id
-  if (!tenantId || !process.env.duplo_token) {
-    console.log('Skipping integration tests: duplo_token and/or duplo_tenant_id env var missing or empty')
+  const tenantName = process.env.duplo_tenant_name
+  if (!tenantId || !tenantName || !process.env.duplo_token) {
+    console.log(
+      'Skipping integration tests: duplo_token and/or duplo_tenant_id and/or duplo_tenant_name env var missing or empty'
+    )
     it('is skipped', () => {})
   } else {
     describe('buildServiceUpdate', () => {
@@ -23,7 +26,7 @@ describe('EcsServiceUpdater integration', () => {
         expect(tenant?.TenantId).not.toBeNull()
         if (tenant?.TenantId) {
           // Get other information
-          const existingService = await ds.getEcsService(tenant.TenantId, 'nginx').toPromise()
+          const existingService = await ds.getEcsService(tenant.TenantId, 'www').toPromise()
           expect(existingService).not.toBeNull()
           if (existingService) {
             const existingTaskDefArn = new EcsTaskDefinitionArn(existingService.TaskDefinition)
@@ -47,7 +50,7 @@ describe('EcsServiceUpdater integration', () => {
             expect(done.TaskDefinitionArn).not.toBeNull()
 
             // Read it back and confirm that it changed.
-            const changedService = await ds.getEcsService(tenant.TenantId, 'nginx').toPromise()
+            const changedService = await ds.getEcsService(tenant.TenantId, 'www').toPromise()
             expect(changedService).not.toBeNull()
             if (changedService) {
               expect(changedService?.TaskDefinition).toEqual(done?.TaskDefinitionArn)

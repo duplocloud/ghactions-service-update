@@ -6,8 +6,11 @@ import {ServiceUpdater} from '../src/service-updater'
 describe('ServiceUpdater integration', () => {
   // Integration tests.
   const tenantId = process.env.duplo_tenant_id
-  if (!tenantId || !process.env.duplo_token) {
-    console.log('Skipping integration tests: duplo_token and/or duplo_tenant_id env var missing or empty')
+  const tenantName = process.env.duplo_tenant_name
+  if (!tenantId || !tenantName || !process.env.duplo_token) {
+    console.log(
+      'Skipping integration tests: duplo_token and/or duplo_tenant_id and/or duplo_tenant_name env var missing or empty'
+    )
     it('is skipped', () => {})
   } else {
     describe('buildServiceUpdate', () => {

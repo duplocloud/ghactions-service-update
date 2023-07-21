@@ -6,8 +6,11 @@ import {DuploHttpClient} from '../../src/duplocloud/httpclient'
 describe('DataSource integration', () => {
   // Integration tests.
   const tenantId = process.env.duplo_tenant_id
-  if (!tenantId || !process.env.duplo_token) {
-    console.log('Skipping integration tests: duplo_token and/or duplo_tenant_id env var missing or empty')
+  const tenantName = process.env.duplo_tenant_name
+  if (!tenantId || !tenantName || !process.env.duplo_token) {
+    console.log(
+      'Skipping integration tests: duplo_token and/or duplo_tenant_id and/or duplo_tenant_name env var missing or empty'
+    )
     it('is skipped', () => {})
   } else {
     const ds = new DataSource(new DuploHttpClient())
@@ -21,31 +24,31 @@ describe('DataSource integration', () => {
 
     describe('getTenantByName', () => {
       it('converts uppercase name', async () => {
-        const result = await ds.getTenantByName('DEFAULT').toPromise()
+        const result = await ds.getTenantByName(tenantName.toUpperCase()).toPromise()
         expect(result).not.toBeNull()
-        expect(result?.AccountName).toBe('default')
+        expect(result?.AccountName).toBe(tenantName)
       })
 
       it('can get default tenant', async () => {
-        const result = await ds.getTenantByName('default').toPromise()
+        const result = await ds.getTenantByName(tenantName).toPromise()
         expect(result).not.toBeNull()
-        expect(result?.AccountName).toBe('default')
+        expect(result?.AccountName).toBe(tenantName)
       })
     })
 
     describe('getTenant', () => {
       it('converts uppercase name', async () => {
-        const result = await ds.getTenant('DEFAULT').toPromise()
+        const result = await ds.getTenant(tenantName.toUpperCase()).toPromise()
         expect(result).not.toBeNull()
-        expect(result?.AccountName).toBe('default')
+        expect(result?.AccountName).toBe(tenantName)
       })
 
       it('can get tenant by name or ID', async () => {
-        const result = await ds.getTenantByName('default').toPromise()
+        const result = await ds.getTenantByName(tenantName).toPromise()
         expect(result?.TenantId).not.toBeNull()
 
         if (result?.TenantId) {
-          const resultByName = await ds.getTenant('default').toPromise()
+          const resultByName = await ds.getTenant(tenantName).toPromise()
           expect(resultByName).toEqual(result)
           const resultById = await ds.getTenant(result.TenantId).toPromise()
           expect(resultById).toEqual(result)
