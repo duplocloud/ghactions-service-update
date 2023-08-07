@@ -1,8 +1,5 @@
-import '../polyfill/fetch'
-
-import {Observable, throwError} from 'rxjs'
-import {fromFetch} from 'rxjs/fetch'
-import {switchMap} from 'rxjs/operators'
+import axios, {AxiosRequestConfig} from 'axios'
+import {Observable} from 'rxjs'
 
 export type HttpHeaders = {[header: string]: string}
 
@@ -27,37 +24,44 @@ export class DuploHttpClient {
   }
 
   get<T>(path: string, options?: HttpOptions): Observable<T> {
-    return this.doFetch(path, 'GET', null, options)
+    return this.doRequest(path, 'GET', null, options)
   }
 
   post<T>(path: string, body: string | null | object, options?: HttpOptions): Observable<T> {
-    return this.doFetch(path, 'POST', body, options)
+    return this.doRequest(path, 'POST', body, options)
   }
 
   put<T>(path: string, body: string | null | object, options?: HttpOptions): Observable<T> {
-    return this.doFetch(path, 'PUT', body, options)
+    return this.doRequest(path, 'PUT', body, options)
   }
 
   delete<T>(path: string, options?: HttpOptions): Observable<T> {
-    return this.doFetch(path, 'DELETE', null, options)
+    return this.doRequest(path, 'DELETE', null, options)
   }
 
-  private doFetch<T>(
+  private doRequest<T>(
     path: string,
     method: string,
     body?: string | null | object,
     options?: HttpOptions
   ): Observable<T> {
     const input = `${this.host}${path}`
-    const init: RequestInit = Object.assign({method, headers: this.headers}, options ?? {})
-    if (typeof body === 'string') init.body = body
-    else if (body) init.body = JSON.stringify(body)
+    const config: AxiosRequestConfig = {
+      method,
+      url: input,
+      headers: {...this.headers, ...options?.headers},
+      data: body
+    }
 
-    return fromFetch(input, init).pipe(
-      switchMap(response => {
-        if (response.ok) return response.json()
-        return throwError(response.body)
-      })
-    )
+    return new Observable(observer => {
+      axios(config)
+        .then(response => {
+          observer.next(response.data)
+          observer.complete()
+        })
+        .catch(error => {
+          observer.error(error)
+        })
+    })
   }
 }
