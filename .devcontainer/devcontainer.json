@@ -1,0 +1,23 @@
+{
+    "name": "ghactions-service-update",
+    "dockerFile": "Dockerfile",
+    "forwardPorts": [3000],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "ms-vscode.vscode-typescript-tslint-plugin"
+            ]
+        }
+    },
+    "postCreateCommand": "npm install && npm test",
+    "mounts": [
+        "source=${localWorkspaceFolder}/,target=/workspace,type=bind,consistency=cached"
+    ],
+    "runArgs": [
+        "--env-file", "${localWorkspaceFolder}/.devcontainer/devcontainer.env"
+    ]
+}
