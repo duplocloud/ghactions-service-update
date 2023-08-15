@@ -39,7 +39,10 @@ export class EcsServiceUpdater {
       mergeMap(existingTaskDef => {
         // Find the container to update.
         const ImagePrev = existingTaskDef.ContainerDefinitions.find(cnt => cnt.Name === 'default')?.Image
-        if (!ImagePrev) throw new Error(`ECS service: ${this.name}: cannot find default container`)
+        if (!ImagePrev)
+          throw new Error(
+            `ECS service: ${this.name}: This action only supports updating an image for a container named "default".`
+          )
 
         // Create a new task definition, replacing the default container's image.
         const desiredTaskDef = new EcsTaskDefinition(existingTaskDef)
@@ -67,7 +70,8 @@ export class EcsServiceUpdater {
                 return {ImagePrev, TaskDefinitionArn, UpdateSucceeded: true}
               }),
               catchError(err => {
-                core.error(`Failed to update ECS service: ${JSON.stringify(err)}`)
+                const msg = extractErrorMessage(err)
+                core.error(`Failed to update ECS service: ${msg}`)
                 return of({ImagePrev, TaskDefinitionArn, UpdateSucceeded: false})
               })
             )
@@ -80,7 +84,8 @@ export class EcsServiceUpdater {
         )
       }),
       catchError(err => {
-        core.error(`Failed to find ECS task definition: ${JSON.stringify(err)}`)
+        const msg = extractErrorMessage(err)
+        core.error(`Failed to find ECS task definition: ${msg}`)
         return of({UpdateSucceeded: false})
       })
     )

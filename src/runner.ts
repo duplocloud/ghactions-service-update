@@ -115,7 +115,6 @@ export class Runner {
   }
 
   async runAction(): Promise<void> {
-    // Should we be verbose?
     const verbose = core.getBooleanInput('verbose')
 
     try {
