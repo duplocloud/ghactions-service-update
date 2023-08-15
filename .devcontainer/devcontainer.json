@@ -13,11 +13,8 @@
             ]
         }
     },
-    "postCreateCommand": "npm install && npm test",
+    "postCreateCommand": "npm install",
     "mounts": [
         "source=${localWorkspaceFolder}/,target=/workspace,type=bind,consistency=cached"
-    ],
-    "runArgs": [
-        "--env-file", "${localWorkspaceFolder}/.devcontainer/devcontainer.env"
     ]
 }
