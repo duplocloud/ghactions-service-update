@@ -115,8 +115,10 @@ export class ServiceUpdater {
       }
     }
 
+    const changeRequests = [rq]
+
     // Build the API call and prepare to output status about the API call
-    return this.ds.patchService(this.tenant.TenantId, rq).pipe(
+    return this.ds.updateServices(this.tenant.TenantId, changeRequests).pipe(
       map(rp => {
         core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`)
         return {ImagePrev, Replicas, Containers, UpdateSucceeded: rp ?? true}

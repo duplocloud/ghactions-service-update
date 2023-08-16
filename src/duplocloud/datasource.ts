@@ -71,6 +71,10 @@ export class DataSource {
     return this.api.post<null>(`/subscriptions/${tenantId}/ReplicationControllerChange`, request)
   }
 
+  updateServices(tenantId: string, request: ReplicationControllerChangeRequest[]): Observable<null> {
+    return this.api.post<null>(`/subscriptions/${tenantId}/ReplictionControllerBulkChange`, request)
+  }
+
   getPods(tenantId: string): Observable<Pod[]> {
     return this.api.get<Pod[]>(`/subscriptions/${tenantId}/GetPods`).pipe(
       map(list => {
