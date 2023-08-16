@@ -10,7 +10,10 @@ export interface HttpOptions {
 export class DuploHttpClient {
   private headers: {[name: string]: string}
 
-  constructor(private host?: string, private token?: string) {
+  constructor(
+    private host?: string,
+    private token?: string
+  ) {
     if (!this.host?.length) this.host = process.env.duplo_host
     if (!this.host?.length) throw new Error('duplo_host: env var missing or empty')
 

@@ -8,8 +8,7 @@
                 "terminal.integrated.shell.linux": "/bin/bash"
             },
             "extensions": [
-                "dbaeumer.vscode-eslint",
-                "ms-vscode.vscode-typescript-tslint-plugin"
+                "dbaeumer.vscode-eslint"
             ]
         }
     },
