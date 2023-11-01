@@ -93,7 +93,7 @@ export class DataSource {
 
   getEcsService(tenantId: string, taskDefFamilyName: string): Observable<EcsServiceModel | undefined> {
     return this.getAllEcsServices(tenantId).pipe(
-      map(list => list.find(item => item.TaskDefinition.includes(`${taskDefFamilyName}:`)))
+      map(list => list.find(item => item.TaskDefinition.includes(`:task-definition/${taskDefFamilyName}:`)))
     )
   }
 

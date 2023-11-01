@@ -1,6 +1,6 @@
 import '../polyfill/fetch'
 
-import {Observable, throwError} from 'rxjs'
+import {Observable, of, throwError} from 'rxjs'
 import {fromFetch} from 'rxjs/fetch'
 import {switchMap} from 'rxjs/operators'
 
@@ -22,7 +22,8 @@ export class DuploHttpClient {
 
     this.headers = {
       Authorization: `Bearer ${this.token}`,
-      'Content-type': 'application/json; charset=UTF-8'
+      Accept: 'application/json',
+      'Content-Type': 'application/json; charset=utf-8'
     }
   }
 
@@ -55,7 +56,11 @@ export class DuploHttpClient {
 
     return fromFetch(input, init).pipe(
       switchMap(response => {
-        if (response.ok) return response.json()
+        if (response.ok) {
+          const l = response.headers?.get('Content-Length')?.toString()
+          if (!l || l !== '0') return response.json()
+          return of(null) as unknown as Observable<T>
+        }
         return throwError(response.body)
       })
     )

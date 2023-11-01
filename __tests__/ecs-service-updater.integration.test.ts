@@ -26,7 +26,7 @@ describe('EcsServiceUpdater integration', () => {
         expect(tenant?.TenantId).not.toBeNull()
         if (tenant?.TenantId) {
           // Get other information
-          const existingService = await ds.getEcsService(tenant.TenantId, 'www').toPromise()
+          const existingService = await ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www').toPromise()
           expect(existingService).not.toBeNull()
           if (existingService) {
             const existingTaskDefArn = new EcsTaskDefinitionArn(existingService.TaskDefinition)
@@ -37,7 +37,7 @@ describe('EcsServiceUpdater integration', () => {
 
             // Build the request
             const request = {
-              Name: 'nginx',
+              Name: 'www',
               Image: ImagePrev === 'nginx:latest' ? 'nginx:1.21-alpine' : 'nginx:latest'
             }
 
@@ -50,7 +50,7 @@ describe('EcsServiceUpdater integration', () => {
             expect(done.TaskDefinitionArn).not.toBeNull()
 
             // Read it back and confirm that it changed.
-            const changedService = await ds.getEcsService(tenant.TenantId, 'www').toPromise()
+            const changedService = await ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www').toPromise()
             expect(changedService).not.toBeNull()
             if (changedService) {
               expect(changedService?.TaskDefinition).toEqual(done?.TaskDefinitionArn)

@@ -70,7 +70,7 @@ class DataSource {
         }));
     }
     getEcsService(tenantId, taskDefFamilyName) {
-        return this.getAllEcsServices(tenantId).pipe((0, operators_1.map)(list => list.find(item => item.TaskDefinition.includes(`${taskDefFamilyName}:`))));
+        return this.getAllEcsServices(tenantId).pipe((0, operators_1.map)(list => list.find(item => item.TaskDefinition.includes(`:task-definition/${taskDefFamilyName}:`))));
     }
     updateEcsService(tenantId, ecsService) {
         return this.api.post(`/subscriptions/${tenantId}/UpdateEcsService`, ecsService);
@@ -123,7 +123,8 @@ class DuploHttpClient {
             throw new Error('duplo_token: env var missing or empty');
         this.headers = {
             Authorization: `Bearer ${this.token}`,
-            'Content-type': 'application/json; charset=UTF-8'
+            Accept: 'application/json',
+            'Content-Type': 'application/json; charset=utf-8'
         };
     }
     get(path, options) {
@@ -146,8 +147,13 @@ class DuploHttpClient {
         else if (body)
             init.body = JSON.stringify(body);
         return (0, fetch_1.fromFetch)(input, init).pipe((0, operators_1.switchMap)(response => {
-            if (response.ok)
-                return response.json();
+            var _a, _b;
+            if (response.ok) {
+                const l = (_b = (_a = response.headers) === null || _a === void 0 ? void 0 : _a.get('Content-Length')) === null || _b === void 0 ? void 0 : _b.toString();
+                if (!l || l !== '0')
+                    return response.json();
+                return (0, rxjs_1.of)(null);
+            }
             return (0, rxjs_1.throwError)(response.body);
         }));
     }
