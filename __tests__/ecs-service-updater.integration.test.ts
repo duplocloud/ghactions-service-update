@@ -3,6 +3,7 @@ import {DataSource} from '../src/duplocloud/datasource'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import {EcsTaskDefinitionArn} from '../src/duplocloud/model'
 import {EcsServiceUpdater} from '../src/ecs-service-updater'
+import {lastValueFrom} from 'rxjs'
 
 describe('EcsServiceUpdater integration', () => {
   // Integration tests.
@@ -21,18 +22,18 @@ describe('EcsServiceUpdater integration', () => {
         const ds = new DataSource(new DuploHttpClient())
 
         // Get tenant
-        const tenant = await ds.getTenant(tenantId).toPromise()
+        const tenant = await lastValueFrom(ds.getTenant(tenantId))
         expect(tenant).not.toBeNull()
         expect(tenant?.TenantId).not.toBeNull()
         if (tenant?.TenantId) {
           // Get other information
-          const existingService = await ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www').toPromise()
+          const existingService = await lastValueFrom(ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www'))
           expect(existingService).not.toBeNull()
           if (existingService) {
             const existingTaskDefArn = new EcsTaskDefinitionArn(existingService.TaskDefinition)
-            const existingTaskDef = await ds
-              .getTaskDefinitionDetails(tenant.TenantId, existingService.TaskDefinition)
-              .toPromise()
+            const existingTaskDef = await lastValueFrom(
+              ds.getTaskDefinitionDetails(tenant.TenantId, existingService.TaskDefinition)
+            )
             const ImagePrev = existingTaskDef.ContainerDefinitions.find(cnt => cnt.Name === 'default')?.Image
 
             // Build the request
@@ -45,18 +46,18 @@ describe('EcsServiceUpdater integration', () => {
             const updater = new EcsServiceUpdater(tenant, request, existingService, existingTaskDefArn, ds)
 
             // Update the service
-            const done = await updater.buildServiceUpdate().toPromise()
+            const done = await lastValueFrom(updater.buildServiceUpdate())
             expect(done.UpdateSucceeded).toBeTruthy()
             expect(done.TaskDefinitionArn).not.toBeNull()
 
             // Read it back and confirm that it changed.
-            const changedService = await ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www').toPromise()
+            const changedService = await lastValueFrom(ds.getEcsService(tenant.TenantId, 'duploservices-gha-tests-www'))
             expect(changedService).not.toBeNull()
             if (changedService) {
               expect(changedService?.TaskDefinition).toEqual(done?.TaskDefinitionArn)
-              const changedTaskDef = await ds
-                .getTaskDefinitionDetails(tenant.TenantId, changedService.TaskDefinition)
-                .toPromise()
+              const changedTaskDef = await lastValueFrom(
+                ds.getTaskDefinitionDetails(tenant.TenantId, changedService.TaskDefinition)
+              )
               const changedImage = changedTaskDef.ContainerDefinitions.find(cnt => cnt.Name === 'default')?.Image
               expect(changedImage).toEqual(request.Image)
             }

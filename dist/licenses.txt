@@ -533,8 +533,6 @@ Apache-2.0
  
 
 
-rxjs/operators
-
 supports-color
 MIT
 MIT License

@@ -4,7 +4,7 @@ import {Runner, ServicePatchResults} from '../src/runner'
 import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import * as core from '@actions/core'
 import {DataSource} from '../src/duplocloud/datasource'
-import {of, throwError} from 'rxjs'
+import {of, throwError, lastValueFrom, scheduled, asyncScheduler} from 'rxjs'
 import {AgentPlatform, Pod, PodContainer, PodTemplate, ReplicationController, UserTenant} from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 
@@ -127,7 +127,7 @@ describe('Runner unit', () => {
               Containers: []
             }
           }
-          return of(res).toPromise()
+          return lastValueFrom(of(res))
         })
       })
 

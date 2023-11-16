@@ -1,5 +1,6 @@
 import {DuploHttpClient} from '../../src/duplocloud/httpclient'
 import {expect} from '@jest/globals'
+import {lastValueFrom} from 'rxjs'
 
 describe('DuploHttpClient integration', () => {
   // Integration tests.
@@ -9,10 +10,7 @@ describe('DuploHttpClient integration', () => {
   } else {
     it('can get data from duplo', async () => {
       const client = new DuploHttpClient()
-
-      const data$ = client.get('/admin/GetTenantsForUser')
-      const result = await data$.toPromise()
-
+      const result = await lastValueFrom(client.get('/admin/GetTenantsForUser'))
       expect(result).not.toBeNull()
     })
   }
