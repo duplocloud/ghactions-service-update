@@ -2,7 +2,7 @@ import {expect, jest} from '@jest/globals'
 
 import {ServiceUpdater, ServiceUpdateRequest} from '../src/service-updater'
 import {DataSource} from '../src/duplocloud/datasource'
-import {of} from 'rxjs'
+import {of, lastValueFrom} from 'rxjs'
 import {
   AgentPlatform,
   Pod,
@@ -14,7 +14,6 @@ import {
 } from '../src/duplocloud/model'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import * as core from '@actions/core'
-import {connectableObservableDescriptor} from 'rxjs/internal/observable/ConnectableObservable'
 
 jest.mock('@actions/core')
 jest.mock('../src/duplocloud/httpclient')
@@ -83,7 +82,7 @@ describe('ServiceUpdater unit', () => {
       it('can be implicitly read from the ReplicationController', async () => {
         expected.AgentPlatform = existing.Template.AgentPlatform
 
-        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+        const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
         expect(core.error).not.toHaveBeenCalled()
         expect(result?.UpdateSucceeded).toBeTruthy()
@@ -94,7 +93,7 @@ describe('ServiceUpdater unit', () => {
         existing.Template.AgentPlatform = 0
         expected.AgentPlatform = desired.AgentPlatform = 7
 
-        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+        const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
         expect(core.error).not.toHaveBeenCalled()
         expect(result?.UpdateSucceeded).toBeTruthy()
@@ -105,7 +104,7 @@ describe('ServiceUpdater unit', () => {
     describe('ExtraConfig', () => {
       it('is not written when not specified', async () => {
         delete expected.ExtraConfig
-        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+        const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
         expect(core.error).not.toHaveBeenCalled()
         expect(result?.UpdateSucceeded).toBeTruthy()
@@ -120,7 +119,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.ExtraConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -132,7 +131,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.ExtraConfig = JSON.stringify({bar: 'foo'})
           expected.ExtraConfig = JSON.stringify({foo: 'bar'})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -148,7 +147,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.ExtraConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -160,7 +159,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.ExtraConfig = JSON.stringify({bar: 'foo'})
           expected.ExtraConfig = JSON.stringify({bar: 'foo', foo: 'bar'})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -176,7 +175,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.ExtraConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.OtherDockerConfig = mockPatchService.mock.calls[0][1].OtherDockerConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -188,7 +187,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.ExtraConfig = JSON.stringify({bar: 'foo', foo: 'bar'})
           expected.ExtraConfig = JSON.stringify({bar: 'foo'})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -199,7 +198,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.ExtraConfig = JSON.stringify({foo: 'bar'})
           expected.ExtraConfig = '{}'
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -217,7 +216,7 @@ describe('ServiceUpdater unit', () => {
       it('is not written when not specified', async () => {
         delete expected.OtherDockerConfig
 
-        const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+        const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
         expect(core.error).not.toHaveBeenCalled()
         expect(result?.UpdateSucceeded).toBeTruthy()
@@ -232,7 +231,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.OtherDockerConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -250,7 +249,7 @@ describe('ServiceUpdater unit', () => {
             Env: desired.Env
           })
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -261,7 +260,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.OtherDockerConfig = ''
           expected.OtherDockerConfig = JSON.stringify({Env: desired.Env})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -277,7 +276,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.OtherDockerConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -298,7 +297,7 @@ describe('ServiceUpdater unit', () => {
             ]
           })
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -324,7 +323,7 @@ describe('ServiceUpdater unit', () => {
             ]
           })
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -335,7 +334,7 @@ describe('ServiceUpdater unit', () => {
           existing.Template.OtherDockerConfig = ''
           expected.OtherDockerConfig = JSON.stringify({Env: desired.MergeEnv})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -351,7 +350,7 @@ describe('ServiceUpdater unit', () => {
           expected = defaultExpected()
           delete expected.OtherDockerConfig
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
           expected.ExtraConfig = mockPatchService.mock.calls[0][1].ExtraConfig
 
           expect(core.error).not.toHaveBeenCalled()
@@ -372,7 +371,7 @@ describe('ServiceUpdater unit', () => {
             Env: [{Name: 'bar', Value: 'foo'}]
           })
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -390,7 +389,7 @@ describe('ServiceUpdater unit', () => {
             Env: [{Name: 'bar', Value: 'foo'}]
           })
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()
@@ -403,7 +402,7 @@ describe('ServiceUpdater unit', () => {
           })
           expected.OtherDockerConfig = JSON.stringify({Env: []})
 
-          const result = await createServiceUpdater().buildServiceUpdate().toPromise()
+          const result = await lastValueFrom(createServiceUpdater().buildServiceUpdate())
 
           expect(core.error).not.toHaveBeenCalled()
           expect(result?.UpdateSucceeded).toBeTruthy()

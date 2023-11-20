@@ -8,27 +8,13 @@ import {
   UserTenant
 } from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
-import {Observable, forkJoin} from 'rxjs'
+import {Observable, forkJoin, lastValueFrom} from 'rxjs'
 import {ServicePatchResult, ServiceUpdateRequest, ServiceUpdater} from './service-updater'
 import {DataSource} from './duplocloud/datasource'
 import {DuploHttpClient} from './duplocloud/httpclient'
 
 export interface ServicePatchResults {
   [name: string]: ServicePatchResult
-}
-
-interface ServiceLookupApis {
-  services?: Observable<ReplicationController[]>
-  pods?: Observable<Pod[]>
-  ecsServices?: Observable<EcsServiceModel[]>
-  ecsTaskDefs?: Observable<EcsTaskDefinitionArn[]>
-}
-
-interface ServiceLookups {
-  services?: ReplicationController[]
-  pods?: Pod[]
-  ecsServices?: EcsServiceModel[]
-  ecsTaskDefs?: EcsTaskDefinitionArn[]
 }
 
 export class Runner {
@@ -72,7 +58,7 @@ export class Runner {
     }
 
     // Collect information about the services to update
-    const lookupApis: ServiceLookupApis = {}
+    var lookupApis: any = {}
     if (haveServiceUpdates) {
       lookupApis.services = ds.getReplicationControllers(tenant.TenantId)
       lookupApis.pods = ds.getPods(tenant.TenantId)
@@ -81,23 +67,23 @@ export class Runner {
       lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId)
       lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId)
     }
-    const lookups: ServiceLookups = await forkJoin(lookupApis).toPromise()
 
+    const lookups: any = await lastValueFrom(forkJoin(lookupApis))
     // Create the service updater instances.
     const updaters: {[name: string]: ServiceUpdater | EcsServiceUpdater} = {}
     for (const desired of serviceUpdates) {
-      const existing = lookups.services?.find(svc => svc.Name === desired.Name)
+      const existing = lookups.services?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existing) throw new Error(`${Runner.ERROR_NO_SUCH_DUPLO_SERVICE}: ${desired.Name}`)
 
-      const pods = lookups.pods?.filter(pod => pod.Name === desired.Name) || []
+      const pods = lookups?.pods?.filter((pod: {Name: string}) => pod.Name === desired.Name) || []
       updaters[desired.Name] = new ServiceUpdater(tenant, desired, existing, pods, ds)
     }
     for (const desired of ecsUpdates) {
-      const existingService = lookups.ecsServices?.find(svc => svc.Name === desired.Name)
+      const existingService = lookups?.ecsServices?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existingService) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_SERVICE}: ${desired.Name}`)
 
-      const existingTaskDefArn = lookups.ecsTaskDefs?.find(
-        svc => svc.TaskDefinitionArn === existingService.TaskDefinition
+      const existingTaskDefArn = lookups?.ecsTaskDefs?.find(
+        (svc: {TaskDefinitionArn: any}) => svc.TaskDefinitionArn === existingService.TaskDefinition
       )
       if (!existingTaskDefArn) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_TASKDEF}: ${desired.Name}`)
 
@@ -111,7 +97,7 @@ export class Runner {
     }
 
     // Perform the updates in parallel, failing on error.
-    return forkJoin(apiCalls).toPromise()
+    return lastValueFrom(forkJoin(apiCalls)) as Promise<ServicePatchResults>
   }
 
   async runAction(): Promise<void> {
@@ -127,7 +113,7 @@ export class Runner {
       // Collect tenant information.
       const tenantInput = core.getInput('tenant')
       if (!tenantInput) throw new Error(Runner.ERROR_NO_TENANT_SPECIFIED)
-      const tenant = await ds.getTenant(tenantInput).toPromise()
+      const tenant = await lastValueFrom(ds.getTenant(tenantInput))
       if (!tenant) throw new Error(`${Runner.ERROR_NO_SUCH_TENANT}: ${tenantInput}`)
 
       // Update all services.

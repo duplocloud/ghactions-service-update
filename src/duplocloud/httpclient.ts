@@ -1,8 +1,6 @@
-import '../polyfill/fetch'
-
 import {Observable, of, throwError} from 'rxjs'
-import {fromFetch} from 'rxjs/fetch'
 import {switchMap} from 'rxjs/operators'
+import Axios from 'axios-observable'
 
 export type HttpHeaders = {[header: string]: string}
 
@@ -49,19 +47,31 @@ export class DuploHttpClient {
     body?: string | null | object,
     options?: HttpOptions
   ): Observable<T> {
-    const input = `${this.host}${path}`
-    const init: RequestInit = Object.assign({method, headers: this.headers}, options ?? {})
-    if (typeof body === 'string') init.body = body
-    else if (body) init.body = JSON.stringify(body)
+    let data
+    if (typeof body === 'string') data = body
+    else if (body) data = JSON.stringify(body)
 
-    return fromFetch(input, init).pipe(
+    const init = Object.assign(
+      {
+        method,
+        baseURL: this.host,
+        url: path,
+        data,
+        headers: this.headers
+      },
+      options ?? {}
+    )
+
+    return Axios.request(init).pipe(
       switchMap(response => {
-        if (response.ok) {
-          const l = response.headers?.get('Content-Length')?.toString()
-          if (!l || l !== '0') return response.json()
+        if (response.statusText === 'OK' && response.status === 200) {
+          const l = response.headers['content-length']?.toString()
+          if (!l || l !== '0') {
+            return of(response.data) as unknown as Observable<T>
+          }
           return of(null) as unknown as Observable<T>
         }
-        return throwError(response.body)
+        return throwError(response)
       })
     )
   }

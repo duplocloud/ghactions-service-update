@@ -2,6 +2,7 @@ import {expect, jest} from '@jest/globals'
 import {DataSource} from '../src/duplocloud/datasource'
 import {DuploHttpClient} from '../src/duplocloud/httpclient'
 import {ServiceUpdater} from '../src/service-updater'
+import {lastValueFrom} from 'rxjs'
 
 describe('ServiceUpdater integration', () => {
   // Integration tests.
@@ -20,15 +21,15 @@ describe('ServiceUpdater integration', () => {
         const ds = new DataSource(new DuploHttpClient())
 
         // Get tenant
-        const tenant = await ds.getTenant(tenantId).toPromise()
+        const tenant = await lastValueFrom(ds.getTenant(tenantId))
         expect(tenant).not.toBeNull()
         expect(tenant?.TenantId).not.toBeNull()
         if (tenant?.TenantId) {
           // Get other information
-          const existing = await ds.getReplicationController(tenant.TenantId, 'website').toPromise()
+          const existing = await lastValueFrom(ds.getReplicationController(tenant.TenantId, 'website'))
           expect(existing).not.toBeNull()
           if (existing) {
-            const pods = await ds.getPodsByService(tenant.TenantId, 'website').toPromise()
+            const pods = await lastValueFrom(ds.getPodsByService(tenant.TenantId, 'website'))
 
             // Build the request
             const request = {
@@ -41,10 +42,10 @@ describe('ServiceUpdater integration', () => {
             const updater = new ServiceUpdater(tenant, request, existing, pods, ds)
 
             // Update the service
-            const done = await updater.buildServiceUpdate().toPromise()
+            const done = await lastValueFrom(updater.buildServiceUpdate())
 
             // Read it back and confirm that it changed.
-            const result = await ds.getReplicationController(tenant.TenantId, 'website').toPromise()
+            const result = await lastValueFrom(ds.getReplicationController(tenant.TenantId, 'website'))
             expect(result?.Image).toEqual(request.Image)
           }
         }

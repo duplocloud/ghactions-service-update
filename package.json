@@ -27,8 +27,9 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.6.0",
-    "node-fetch": "^2.6.7",
-    "rxjs": "^6.6.3"
+    "axios": "^1.6.1",
+    "axios-observable": "^2.0.0",
+    "rxjs": "^7.0.0"
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.16.8",
