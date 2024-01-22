@@ -5,11 +5,12 @@ import {
   EcsTaskDefinitionArn,
   Pod,
   ReplicationController,
+  ReplicationControllerChangeRequest,
   UserTenant
 } from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
 import {Observable, forkJoin, lastValueFrom} from 'rxjs'
-import {ServicePatchResult, ServiceUpdateRequest, ServiceUpdater} from './service-updater'
+import {ServicePatchResult, ServiceUpdateRequest, ServiceUpdater, bulkServiceUpdate} from './service-updater'
 import {DataSource} from './duplocloud/datasource'
 import {DuploHttpClient} from './duplocloud/httpclient'
 
@@ -33,7 +34,7 @@ export class Runner {
    * @param tenant  duplo tenant being acted on
    * @returns a map of service name to API call status
    */
-  async updateServices(ds: DataSource, tenant: UserTenant): Promise<ServicePatchResults> {
+  async updateServices(ds: DataSource, tenant: UserTenant, useBulkApi = false): Promise<ServicePatchResults> {
     // Parse requested updates.
     let serviceUpdates: ServiceUpdateRequest[] = JSON.parse(core.getInput('services') || '[]')
     const haveServiceUpdates = !!serviceUpdates?.length
@@ -70,14 +71,16 @@ export class Runner {
 
     const lookups: any = await lastValueFrom(forkJoin(lookupApis))
     // Create the service updater instances.
-    const updaters: {[name: string]: ServiceUpdater | EcsServiceUpdater} = {}
+    const serviceUpdaters: {[name: string]: ServiceUpdater } = {};
     for (const desired of serviceUpdates) {
       const existing = lookups.services?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existing) throw new Error(`${Runner.ERROR_NO_SUCH_DUPLO_SERVICE}: ${desired.Name}`)
 
       const pods = lookups?.pods?.filter((pod: {Name: string}) => pod.Name === desired.Name) || []
-      updaters[desired.Name] = new ServiceUpdater(tenant, desired, existing, pods, ds)
+      serviceUpdaters[desired.Name] = new ServiceUpdater(tenant, desired, existing, pods, ds)
     }
+    
+    const ecsServiceUpdaters: {[name: string]:  EcsServiceUpdater } = {};
     for (const desired of ecsUpdates) {
       const existingService = lookups?.ecsServices?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existingService) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_SERVICE}: ${desired.Name}`)
@@ -87,13 +90,27 @@ export class Runner {
       )
       if (!existingTaskDefArn) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_TASKDEF}: ${desired.Name}`)
 
-      updaters[desired.Name] = new EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds)
+      ecsServiceUpdaters[desired.Name] = new EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds)
     }
 
     // Build the updates to execute in parallel.
     const apiCalls: {[name: string]: Observable<ServicePatchResult | EcsServicePatchResult>} = {}
-    for (const name of Object.keys(updaters)) {
-      apiCalls[name] = updaters[name].buildServiceUpdate()
+
+    let serviceKeys: string[] = Object.keys(serviceUpdaters);
+    if (useBulkApi) {
+      let repChangeList: ReplicationControllerChangeRequest[] = [];
+      for (const name of serviceKeys) {
+        repChangeList.push(serviceUpdaters[name].buildUpdatePayload());
+      }
+      apiCalls['Service-Bulk-Update'] = bulkServiceUpdate(serviceUpdaters[serviceKeys[0]], repChangeList);
+    } else {
+      for (const name of serviceKeys) {
+        apiCalls[name] = serviceUpdaters[name].buildServiceUpdate();
+      }
+    }
+
+    for (const name of Object.keys(ecsServiceUpdaters)) {
+      apiCalls[name] = ecsServiceUpdaters[name].buildServiceUpdate()
     }
 
     // Perform the updates in parallel, failing on error.
@@ -108,6 +125,7 @@ export class Runner {
       // Connect to Duplo.
       const duploHost = core.getInput('duplo_host')
       const duploToken = core.getInput('duplo_token')
+      const useBulkApi = core.getBooleanInput('use_bulk_api') || false
       const ds = new DataSource(new DuploHttpClient(duploHost, duploToken))
 
       // Collect tenant information.
@@ -117,7 +135,7 @@ export class Runner {
       if (!tenant) throw new Error(`${Runner.ERROR_NO_SUCH_TENANT}: ${tenantInput}`)
 
       // Update all services.
-      const updateResults = await this.updateServices(ds, tenant)
+      const updateResults = await this.updateServices(ds, tenant, useBulkApi)
 
       // Check for failures.
       if (updateResults) {
