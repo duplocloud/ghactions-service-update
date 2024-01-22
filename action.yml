@@ -19,6 +19,10 @@ inputs:
   duplo_token:
     required: false
     description: 'API token - defaults to duplo_token env var'
+  use_bulk_api:
+    required: false
+    description: 'Boolean Flag - Uses bulk services update API if true'
+    default: false
   wait:
     required: false
     description: 'Whether or not to wait until the services have been succesfully updated'
