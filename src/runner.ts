@@ -102,7 +102,8 @@ export class Runner {
       for (const name of serviceKeys) {
         repChangeList.push(serviceUpdaters[name].buildUpdatePayload());
       }
-      apiCalls['Service-Bulk-Update'] = bulkServiceUpdate(serviceUpdaters[serviceKeys[0]], repChangeList);
+      if (repChangeList.length)
+        apiCalls['Service-Bulk-Update'] = bulkServiceUpdate(serviceUpdaters[serviceKeys[0]], repChangeList);
     } else {
       for (const name of serviceKeys) {
         apiCalls[name] = serviceUpdaters[name].buildServiceUpdate();
