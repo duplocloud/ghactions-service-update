@@ -36,6 +36,34 @@ jobs:
             ]
 ```
 
+## Example updating multiple Duplo services
+
+```yaml
+name: Build and Deploy
+on:
+  push:
+    branches:
+      - develop # branch to trigger on
+jobs:
+  deploy:
+    # This example updates 2 services to use the busybox image
+    name: Deploy with DuploCloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: service-update
+        uses: duplocloud/ghactions-service-update@master
+        with:
+          duplo_host: https://mysystem.duplocloud.net
+          duplo_token: ${{ secrets.DUPLO_TOKEN }}
+          use_bulk_api: true
+          tenant: default
+          services: |-
+            [
+              { "Name": "test1", "Image": "busybox:latest" }
+              { "Name": "test2", "Image": "busybox:latest" }
+            ]
+```
+
 ## Example updating an ECS service
 
 ```yaml
