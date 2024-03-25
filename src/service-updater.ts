@@ -87,33 +87,7 @@ export class ServiceUpdater {
       .flat()
 
     // Build the change request.
-    const rq = new ReplicationControllerChangeRequest({
-      Name: this.desired.Name,
-      Image: this.desired.Image,
-      AgentPlatform: this.desired.AgentPlatform,
-      AllocationTags: this.desired.AllocationTags
-    })
-    if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
-      rq.AgentPlatform = this.existing.Template.AgentPlatform
-    }
-
-    if (!rq.AllocationTags?.length) {
-      rq.AllocationTags = this.existing.Template.AllocationTags
-    }
-
-    // Add environment variables to the change request.
-    if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
-      if (rq.AgentPlatform === AgentPlatform.EKS_LINUX) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
-
-        otherDockerConfig.Env = this.buildK8sEnv()
-
-        rq.OtherDockerConfig = JSON.stringify(otherDockerConfig)
-      } else {
-        rq.ExtraConfig = JSON.stringify(this.buildDockerEnv())
-      }
-    }
+    const rq = this.buildUpdatePayload();
 
     // Build the API call and prepare to output status about the API call
     return this.ds.patchService(this.tenant.TenantId, rq).pipe(
@@ -126,6 +100,38 @@ export class ServiceUpdater {
         return of({ImagePrev, Replicas, Containers, UpdateSucceeded: false})
       })
     )
+  }
+
+  buildUpdatePayload(): ReplicationControllerChangeRequest {
+   const payload = new ReplicationControllerChangeRequest({
+      Name: this.desired.Name,
+      Image: this.desired.Image,
+      AgentPlatform: this.desired.AgentPlatform,
+      AllocationTags: this.desired.AllocationTags
+    })
+    if (!payload.AgentPlatform && payload.AgentPlatform !== 0) {
+      payload.AgentPlatform = this.existing.Template.AgentPlatform
+    }
+
+    if (!payload.AllocationTags?.length) {
+      payload.AllocationTags = this.existing.Template.AllocationTags
+    }
+
+    // Add environment variables to the change request.
+    if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+      if (payload.AgentPlatform === AgentPlatform.EKS_LINUX) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const otherDockerConfig: any = this.existing.OtherDockerConfig || {}
+
+        otherDockerConfig.Env = this.buildK8sEnv()
+
+        payload.OtherDockerConfig = JSON.stringify(otherDockerConfig)
+      } else {
+        payload.ExtraConfig = JSON.stringify(this.buildDockerEnv())
+      }
+    }
+
+    return payload;
   }
 
   private buildK8sEnv(): K8sEnvEntry[] {
@@ -162,4 +168,18 @@ export class ServiceUpdater {
 
     return env
   }
+}
+
+// Function to perform bulk Replication Controller Updates
+export function bulkServiceUpdate(serviceUpdater: ServiceUpdater, payload: ReplicationControllerChangeRequest[]) {
+  return serviceUpdater.ds.serviceBulkUpdate(serviceUpdater.tenant.TenantId, payload).pipe(
+    map(rp => {
+      core.info(`${ServiceUpdater.SUCCESS}: Services-Bulk-Update`)
+      return { ImagePrev: undefined, Replicas: 0, Containers: [], UpdateSucceeded: rp ?? true }
+    }),
+    catchError(err => {
+      core.error(`${ServiceUpdater.FAILURE}: Services-Bulk-Update: ${extractErrorMessage(err)}`)
+      return of({ ImagePrev: 'Services-Bulk-Update', Replicas: 0, Containers: [], UpdateSucceeded: false })
+    })
+  )
 }
