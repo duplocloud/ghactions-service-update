@@ -2,6 +2,8 @@
   <a href="https://github.com/duplocloud/ghactions-service-update/actions"><img alt="ghactions-service-update status" src="https://github.com/duplocloud/ghactions-service-update/workflows/build-test/badge.svg"></a>
 </p>
 
+> :warning: **This action is deprecated please use:** [duplocloud/actions/update-image](https://github.com/duplocloud/actions/tree/main/update-image)
+
 # Update one or more Services running in Duplo
 
 This action will update one or more services running in Duplo.
