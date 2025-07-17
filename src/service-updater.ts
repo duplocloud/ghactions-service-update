@@ -87,7 +87,7 @@ export class ServiceUpdater {
       .flat()
 
     // Build the change request.
-    const rq = this.buildUpdatePayload();
+    const rq = this.buildUpdatePayload()
 
     // Build the API call and prepare to output status about the API call
     return this.ds.patchService(this.tenant.TenantId, rq).pipe(
@@ -103,7 +103,7 @@ export class ServiceUpdater {
   }
 
   buildUpdatePayload(): ReplicationControllerChangeRequest {
-   const payload = new ReplicationControllerChangeRequest({
+    const payload = new ReplicationControllerChangeRequest({
       Name: this.desired.Name,
       Image: this.desired.Image,
       AgentPlatform: this.desired.AgentPlatform,
@@ -131,7 +131,7 @@ export class ServiceUpdater {
       }
     }
 
-    return payload;
+    return payload
   }
 
   private buildK8sEnv(): K8sEnvEntry[] {
@@ -171,15 +171,16 @@ export class ServiceUpdater {
 }
 
 // Function to perform bulk Replication Controller Updates
-export function bulkServiceUpdate(serviceUpdater: ServiceUpdater, payload: ReplicationControllerChangeRequest[]) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function bulkServiceUpdate(serviceUpdater: ServiceUpdater, payload: ReplicationControllerChangeRequest[]): any {
   return serviceUpdater.ds.serviceBulkUpdate(serviceUpdater.tenant.TenantId, payload).pipe(
     map(rp => {
       core.info(`${ServiceUpdater.SUCCESS}: Services-Bulk-Update`)
-      return { ImagePrev: undefined, Replicas: 0, Containers: [], UpdateSucceeded: rp ?? true }
+      return {ImagePrev: undefined, Replicas: 0, Containers: [], UpdateSucceeded: rp ?? true}
     }),
     catchError(err => {
       core.error(`${ServiceUpdater.FAILURE}: Services-Bulk-Update: ${extractErrorMessage(err)}`)
-      return of({ ImagePrev: 'Services-Bulk-Update', Replicas: 0, Containers: [], UpdateSucceeded: false })
+      return of({ImagePrev: 'Services-Bulk-Update', Replicas: 0, Containers: [], UpdateSucceeded: false})
     })
   )
 }

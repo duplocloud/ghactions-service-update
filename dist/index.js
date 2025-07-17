@@ -56,6 +56,9 @@ class DataSource {
     patchService(tenantId, request) {
         return this.api.post(`/subscriptions/${tenantId}/ReplicationControllerChange`, request);
     }
+    serviceBulkUpdate(tenantId, request) {
+        return this.api.post(`/subscriptions/${tenantId}/ReplicationControllerBulkChange`, request);
+    }
     getPods(tenantId) {
         return this.api.get(`/subscriptions/${tenantId}/GetPods`).pipe((0, operators_1.map)(list => {
             return list.map(item => new model_1.Pod(item));
@@ -580,7 +583,7 @@ class Runner {
      * @param tenant  duplo tenant being acted on
      * @returns a map of service name to API call status
      */
-    updateServices(ds, tenant) {
+    updateServices(ds, tenant, useBulkApi = false) {
         var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             // Parse requested updates.
@@ -603,7 +606,8 @@ class Runner {
                     throw new Error(`${Runner.ERROR_BAD_AGENT_PLATFORM}: service ${serviceUpdate.Name}: platform ${JSON.stringify(serviceUpdate.AgentPlatform)}`);
             }
             // Collect information about the services to update
-            var lookupApis = {};
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const lookupApis = {};
             if (haveServiceUpdates) {
                 lookupApis.services = ds.getReplicationControllers(tenant.TenantId);
                 lookupApis.pods = ds.getPods(tenant.TenantId);
@@ -612,29 +616,47 @@ class Runner {
                 lookupApis.ecsServices = ds.getAllEcsServices(tenant.TenantId);
                 lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId);
             }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const lookups = yield (0, rxjs_1.lastValueFrom)((0, rxjs_1.forkJoin)(lookupApis));
             // Create the service updater instances.
-            const updaters = {};
+            const serviceUpdaters = {};
             for (const desired of serviceUpdates) {
                 const existing = (_a = lookups.services) === null || _a === void 0 ? void 0 : _a.find((svc) => svc.Name === desired.Name);
                 if (!existing)
                     throw new Error(`${Runner.ERROR_NO_SUCH_DUPLO_SERVICE}: ${desired.Name}`);
                 const pods = ((_b = lookups === null || lookups === void 0 ? void 0 : lookups.pods) === null || _b === void 0 ? void 0 : _b.filter((pod) => pod.Name === desired.Name)) || [];
-                updaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
+                serviceUpdaters[desired.Name] = new service_updater_1.ServiceUpdater(tenant, desired, existing, pods, ds);
             }
+            const ecsServiceUpdaters = {};
             for (const desired of ecsUpdates) {
                 const existingService = (_c = lookups === null || lookups === void 0 ? void 0 : lookups.ecsServices) === null || _c === void 0 ? void 0 : _c.find((svc) => svc.Name === desired.Name);
                 if (!existingService)
                     throw new Error(`${Runner.ERROR_NO_SUCH_ECS_SERVICE}: ${desired.Name}`);
-                const existingTaskDefArn = (_d = lookups === null || lookups === void 0 ? void 0 : lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find((svc) => svc.TaskDefinitionArn === existingService.TaskDefinition);
+                const existingTaskDefArn = (_d = lookups === null || lookups === void 0 ? void 0 : lookups.ecsTaskDefs) === null || _d === void 0 ? void 0 : _d.find(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (svc) => svc.TaskDefinitionArn === existingService.TaskDefinition);
                 if (!existingTaskDefArn)
                     throw new Error(`${Runner.ERROR_NO_SUCH_ECS_TASKDEF}: ${desired.Name}`);
-                updaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
+                ecsServiceUpdaters[desired.Name] = new ecs_service_updater_1.EcsServiceUpdater(tenant, desired, existingService, existingTaskDefArn, ds);
             }
             // Build the updates to execute in parallel.
             const apiCalls = {};
-            for (const name of Object.keys(updaters)) {
-                apiCalls[name] = updaters[name].buildServiceUpdate();
+            const serviceKeys = Object.keys(serviceUpdaters);
+            if (useBulkApi) {
+                const repChangeList = [];
+                for (const name of serviceKeys) {
+                    repChangeList.push(serviceUpdaters[name].buildUpdatePayload());
+                }
+                if (repChangeList.length)
+                    apiCalls['Service-Bulk-Update'] = (0, service_updater_1.bulkServiceUpdate)(serviceUpdaters[serviceKeys[0]], repChangeList);
+            }
+            else {
+                for (const name of serviceKeys) {
+                    apiCalls[name] = serviceUpdaters[name].buildServiceUpdate();
+                }
+            }
+            for (const name of Object.keys(ecsServiceUpdaters)) {
+                apiCalls[name] = ecsServiceUpdaters[name].buildServiceUpdate();
             }
             // Perform the updates in parallel, failing on error.
             return (0, rxjs_1.lastValueFrom)((0, rxjs_1.forkJoin)(apiCalls));
@@ -648,6 +670,7 @@ class Runner {
                 // Connect to Duplo.
                 const duploHost = core.getInput('duplo_host');
                 const duploToken = core.getInput('duplo_token');
+                const useBulkApi = core.getBooleanInput('use_bulk_api');
                 const ds = new datasource_1.DataSource(new httpclient_1.DuploHttpClient(duploHost, duploToken));
                 // Collect tenant information.
                 const tenantInput = core.getInput('tenant');
@@ -657,7 +680,7 @@ class Runner {
                 if (!tenant)
                     throw new Error(`${Runner.ERROR_NO_SUCH_TENANT}: ${tenantInput}`);
                 // Update all services.
-                const updateResults = yield this.updateServices(ds, tenant);
+                const updateResults = yield this.updateServices(ds, tenant, useBulkApi);
                 // Check for failures.
                 if (updateResults) {
                     const failures = [];
@@ -723,7 +746,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ServiceUpdater = exports.ServiceUpdateRequest = void 0;
+exports.bulkServiceUpdate = exports.ServiceUpdater = exports.ServiceUpdateRequest = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const model_1 = __nccwpck_require__(5159);
 const datasource_1 = __nccwpck_require__(8835);
@@ -750,7 +773,7 @@ class ServiceUpdater {
         this.name = desired.Name;
     }
     buildServiceUpdate() {
-        var _a, _b;
+        var _a;
         // Collect data about the existing service and pods.
         const ImagePrev = (_a = this.existing.Template) === null || _a === void 0 ? void 0 : _a.Containers[0].Image;
         const Replicas = this.existing.Replicas;
@@ -768,30 +791,7 @@ class ServiceUpdater {
         })
             .flat();
         // Build the change request.
-        const rq = new model_1.ReplicationControllerChangeRequest({
-            Name: this.desired.Name,
-            Image: this.desired.Image,
-            AgentPlatform: this.desired.AgentPlatform,
-            AllocationTags: this.desired.AllocationTags
-        });
-        if (!rq.AgentPlatform && rq.AgentPlatform !== 0) {
-            rq.AgentPlatform = this.existing.Template.AgentPlatform;
-        }
-        if (!((_b = rq.AllocationTags) === null || _b === void 0 ? void 0 : _b.length)) {
-            rq.AllocationTags = this.existing.Template.AllocationTags;
-        }
-        // Add environment variables to the change request.
-        if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
-            if (rq.AgentPlatform === model_1.AgentPlatform.EKS_LINUX) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const otherDockerConfig = this.existing.OtherDockerConfig || {};
-                otherDockerConfig.Env = this.buildK8sEnv();
-                rq.OtherDockerConfig = JSON.stringify(otherDockerConfig);
-            }
-            else {
-                rq.ExtraConfig = JSON.stringify(this.buildDockerEnv());
-            }
-        }
+        const rq = this.buildUpdatePayload();
         // Build the API call and prepare to output status about the API call
         return this.ds.patchService(this.tenant.TenantId, rq).pipe((0, operators_1.map)(rp => {
             core.info(`${ServiceUpdater.SUCCESS}: ${this.desired.Name}`);
@@ -800,6 +800,34 @@ class ServiceUpdater {
             core.error(`${ServiceUpdater.FAILURE}: ${this.desired.Name}: ${(0, datasource_1.extractErrorMessage)(err)}`);
             return (0, rxjs_1.of)({ ImagePrev, Replicas, Containers, UpdateSucceeded: false });
         }));
+    }
+    buildUpdatePayload() {
+        var _a;
+        const payload = new model_1.ReplicationControllerChangeRequest({
+            Name: this.desired.Name,
+            Image: this.desired.Image,
+            AgentPlatform: this.desired.AgentPlatform,
+            AllocationTags: this.desired.AllocationTags
+        });
+        if (!payload.AgentPlatform && payload.AgentPlatform !== 0) {
+            payload.AgentPlatform = this.existing.Template.AgentPlatform;
+        }
+        if (!((_a = payload.AllocationTags) === null || _a === void 0 ? void 0 : _a.length)) {
+            payload.AllocationTags = this.existing.Template.AllocationTags;
+        }
+        // Add environment variables to the change request.
+        if (this.desired.Env || this.desired.MergeEnv || this.desired.DeleteEnv) {
+            if (payload.AgentPlatform === model_1.AgentPlatform.EKS_LINUX) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const otherDockerConfig = this.existing.OtherDockerConfig || {};
+                otherDockerConfig.Env = this.buildK8sEnv();
+                payload.OtherDockerConfig = JSON.stringify(otherDockerConfig);
+            }
+            else {
+                payload.ExtraConfig = JSON.stringify(this.buildDockerEnv());
+            }
+        }
+        return payload;
     }
     buildK8sEnv() {
         var _a;
@@ -839,6 +867,18 @@ class ServiceUpdater {
 exports.ServiceUpdater = ServiceUpdater;
 ServiceUpdater.SUCCESS = 'Updated Duplo service';
 ServiceUpdater.FAILURE = 'Failed to update Duplo service';
+// Function to perform bulk Replication Controller Updates
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function bulkServiceUpdate(serviceUpdater, payload) {
+    return serviceUpdater.ds.serviceBulkUpdate(serviceUpdater.tenant.TenantId, payload).pipe((0, operators_1.map)(rp => {
+        core.info(`${ServiceUpdater.SUCCESS}: Services-Bulk-Update`);
+        return { ImagePrev: undefined, Replicas: 0, Containers: [], UpdateSucceeded: rp !== null && rp !== void 0 ? rp : true };
+    }), (0, operators_1.catchError)(err => {
+        core.error(`${ServiceUpdater.FAILURE}: Services-Bulk-Update: ${(0, datasource_1.extractErrorMessage)(err)}`);
+        return (0, rxjs_1.of)({ ImagePrev: 'Services-Bulk-Update', Replicas: 0, Containers: [], UpdateSucceeded: false });
+    }));
+}
+exports.bulkServiceUpdate = bulkServiceUpdate;
 
 
 /***/ }),

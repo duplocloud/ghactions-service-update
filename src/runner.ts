@@ -1,13 +1,5 @@
 import * as core from '@actions/core'
-import {
-  EcsServiceModel,
-  EcsServicePatchRequest,
-  EcsTaskDefinitionArn,
-  Pod,
-  ReplicationController,
-  ReplicationControllerChangeRequest,
-  UserTenant
-} from './duplocloud/model'
+import {EcsServicePatchRequest, ReplicationControllerChangeRequest, UserTenant} from './duplocloud/model'
 import {EcsServicePatchResult, EcsServiceUpdater} from './ecs-service-updater'
 import {Observable, forkJoin, lastValueFrom} from 'rxjs'
 import {ServicePatchResult, ServiceUpdateRequest, ServiceUpdater, bulkServiceUpdate} from './service-updater'
@@ -59,7 +51,8 @@ export class Runner {
     }
 
     // Collect information about the services to update
-    var lookupApis: any = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lookupApis: any = {}
     if (haveServiceUpdates) {
       lookupApis.services = ds.getReplicationControllers(tenant.TenantId)
       lookupApis.pods = ds.getPods(tenant.TenantId)
@@ -69,9 +62,10 @@ export class Runner {
       lookupApis.ecsTaskDefs = ds.getAllEcsTaskDefArns(tenant.TenantId)
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lookups: any = await lastValueFrom(forkJoin(lookupApis))
     // Create the service updater instances.
-    const serviceUpdaters: {[name: string]: ServiceUpdater } = {};
+    const serviceUpdaters: {[name: string]: ServiceUpdater} = {}
     for (const desired of serviceUpdates) {
       const existing = lookups.services?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existing) throw new Error(`${Runner.ERROR_NO_SUCH_DUPLO_SERVICE}: ${desired.Name}`)
@@ -79,13 +73,14 @@ export class Runner {
       const pods = lookups?.pods?.filter((pod: {Name: string}) => pod.Name === desired.Name) || []
       serviceUpdaters[desired.Name] = new ServiceUpdater(tenant, desired, existing, pods, ds)
     }
-    
-    const ecsServiceUpdaters: {[name: string]:  EcsServiceUpdater } = {};
+
+    const ecsServiceUpdaters: {[name: string]: EcsServiceUpdater} = {}
     for (const desired of ecsUpdates) {
       const existingService = lookups?.ecsServices?.find((svc: {Name: string}) => svc.Name === desired.Name)
       if (!existingService) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_SERVICE}: ${desired.Name}`)
 
       const existingTaskDefArn = lookups?.ecsTaskDefs?.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (svc: {TaskDefinitionArn: any}) => svc.TaskDefinitionArn === existingService.TaskDefinition
       )
       if (!existingTaskDefArn) throw new Error(`${Runner.ERROR_NO_SUCH_ECS_TASKDEF}: ${desired.Name}`)
@@ -96,17 +91,17 @@ export class Runner {
     // Build the updates to execute in parallel.
     const apiCalls: {[name: string]: Observable<ServicePatchResult | EcsServicePatchResult>} = {}
 
-    let serviceKeys: string[] = Object.keys(serviceUpdaters);
+    const serviceKeys: string[] = Object.keys(serviceUpdaters)
     if (useBulkApi) {
-      let repChangeList: ReplicationControllerChangeRequest[] = [];
+      const repChangeList: ReplicationControllerChangeRequest[] = []
       for (const name of serviceKeys) {
-        repChangeList.push(serviceUpdaters[name].buildUpdatePayload());
+        repChangeList.push(serviceUpdaters[name].buildUpdatePayload())
       }
       if (repChangeList.length)
-        apiCalls['Service-Bulk-Update'] = bulkServiceUpdate(serviceUpdaters[serviceKeys[0]], repChangeList);
+        apiCalls['Service-Bulk-Update'] = bulkServiceUpdate(serviceUpdaters[serviceKeys[0]], repChangeList)
     } else {
       for (const name of serviceKeys) {
-        apiCalls[name] = serviceUpdaters[name].buildServiceUpdate();
+        apiCalls[name] = serviceUpdaters[name].buildServiceUpdate()
       }
     }
 
