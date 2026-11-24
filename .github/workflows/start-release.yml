@@ -8,7 +8,7 @@ on:
         default: '' # default to current version
 env:
   git_user: duplo-bot
-  git_email: joe+github-bot@duplocloud.net
+  git_email: 100788897+duplo-bot@users.noreply.github.com
 jobs:
   start-release:
     runs-on: ubuntu-latest
